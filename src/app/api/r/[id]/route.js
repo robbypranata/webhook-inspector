@@ -17,6 +17,57 @@ function generateRequestId() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
+async function sendNotification(config, title, fields) {
+  if (!config) return;
+  
+  // Format dynamic markdown for Telegram
+  let telegramMessage = `🛰 *[kestrel_ghost]* 🛰\n🔥 *${title}* 🔥\n\n`;
+  for (const [key, val] of Object.entries(fields)) {
+    telegramMessage += `• *${key}*: \`${String(val).replace(/[_*`\[\]]/g, '\\$&')}\`\n`;
+  }
+  
+  // Send Telegram
+  if (config.telegramEnabled && config.telegramToken && config.telegramChatId) {
+    try {
+      const url = `https://api.telegram.org/bot${config.telegramToken}/sendMessage`;
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: config.telegramChatId,
+          text: telegramMessage,
+          parse_mode: 'Markdown'
+        })
+      });
+    } catch (err) {
+      console.error('Telegram Notification failed:', err);
+    }
+  }
+  
+  // Send Discord Webhook
+  if (config.discordEnabled && config.discordWebhook) {
+    try {
+      const embeds = [{
+        title: `🛰 kestrel_ghost: ${title}`,
+        color: 0x00e676, // green neon
+        fields: Object.entries(fields).map(([key, val]) => ({
+          name: key,
+          value: String(val).substring(0, 1023) || 'None',
+          inline: false
+        })),
+        timestamp: new Date().toISOString()
+      }];
+      await fetch(config.discordWebhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ embeds })
+      });
+    } catch (err) {
+      console.error('Discord Notification failed:', err);
+    }
+  }
+}
+
 async function handle(req, { params }) {
   const resolvedParams = await params;
   const id = resolvedParams.id;
@@ -128,18 +179,31 @@ async function handle(req, { params }) {
     };
     let responseBody = JSON.stringify({ success: true, message: 'Webhook received successfully' });
 
+    let configObj = null;
     if (savedConfig) {
       try {
-        const config = typeof savedConfig === 'string' ? JSON.parse(savedConfig) : savedConfig;
+        configObj = typeof savedConfig === 'string' ? JSON.parse(savedConfig) : savedConfig;
         
-        if (config.status) responseStatus = parseInt(config.status, 10);
-        if (config.contentType) responseHeaders['Content-Type'] = config.contentType;
-        if (config.body !== undefined) {
-          responseBody = config.body;
+        if (configObj.status) responseStatus = parseInt(configObj.status, 10);
+        if (configObj.contentType) responseHeaders['Content-Type'] = configObj.contentType;
+        if (configObj.body !== undefined) {
+          responseBody = configObj.body;
         }
       } catch (e) {
         console.error('Error parsing config:', e);
       }
+    }
+
+    // Trigger notification in the background asynchronously
+    if (configObj && (configObj.telegramEnabled || configObj.discordEnabled)) {
+      const notificationFields = {
+        'Method': webhookRequest.method,
+        'Path': webhookRequest.path,
+        'IP Address': webhookRequest.ip,
+        'Query Parameters': JSON.stringify(webhookRequest.query),
+        'Payload Snippet': webhookRequest.body ? webhookRequest.body.substring(0, 400) : '[No Body]'
+      };
+      sendNotification(configObj, 'New OOB Webhook Callback Received!', notificationFields).catch(console.error);
     }
 
     if (req.method === 'OPTIONS') {

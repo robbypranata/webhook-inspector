@@ -52,7 +52,16 @@ export async function POST(req, { params }) {
   const id = resolvedParams.id;
 
   try {
-    const { status, contentType, body } = await req.json();
+    const { 
+      status, 
+      contentType, 
+      body,
+      telegramEnabled,
+      telegramToken,
+      telegramChatId,
+      discordEnabled,
+      discordWebhook
+    } = await req.json();
 
     const parsedStatus = parseInt(status, 10);
     if (isNaN(parsedStatus) || parsedStatus < 100 || parsedStatus > 599) {
@@ -62,7 +71,12 @@ export async function POST(req, { params }) {
     const config = {
       status: parsedStatus,
       contentType: contentType || 'application/json',
-      body: body !== undefined ? body : ''
+      body: body !== undefined ? body : '',
+      telegramEnabled: !!telegramEnabled,
+      telegramToken: telegramToken || '',
+      telegramChatId: telegramChatId || '',
+      discordEnabled: !!discordEnabled,
+      discordWebhook: discordWebhook || ''
     };
 
     const isKvConnected = !!process.env.KV_URL;

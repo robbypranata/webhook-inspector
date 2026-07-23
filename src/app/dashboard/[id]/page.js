@@ -163,7 +163,12 @@ export default function DashboardPage({ params }) {
   const [config, setConfig] = useState({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ success: true, message: 'OOB Callback recorded successfully' })
+    body: JSON.stringify({ success: true, message: 'OOB Callback recorded successfully' }),
+    telegramEnabled: false,
+    telegramToken: '',
+    telegramChatId: '',
+    discordEnabled: false,
+    discordWebhook: ''
   });
 
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -177,6 +182,11 @@ export default function DashboardPage({ params }) {
   const [configStatus, setConfigStatus] = useState('200');
   const [configContentType, setConfigContentType] = useState('application/json');
   const [configBody, setConfigBody] = useState('');
+  const [configTelegramEnabled, setConfigTelegramEnabled] = useState(false);
+  const [configTelegramToken, setConfigTelegramToken] = useState('');
+  const [configTelegramChatId, setConfigTelegramChatId] = useState('');
+  const [configDiscordEnabled, setConfigDiscordEnabled] = useState(false);
+  const [configDiscordWebhook, setConfigDiscordWebhook] = useState('');
 
   // Forwarding form state
   const [forwardTarget, setForwardTarget] = useState('');
@@ -309,6 +319,11 @@ export default function DashboardPage({ params }) {
       setConfigStatus(String(config.status));
       setConfigContentType(config.contentType);
       setConfigBody(config.body);
+      setConfigTelegramEnabled(!!config.telegramEnabled);
+      setConfigTelegramToken(config.telegramToken || '');
+      setConfigTelegramChatId(config.telegramChatId || '');
+      setConfigDiscordEnabled(!!config.discordEnabled);
+      setConfigDiscordWebhook(config.discordWebhook || '');
     }
   }, [isConfigOpen, config]);
 
@@ -377,7 +392,12 @@ export default function DashboardPage({ params }) {
         body: JSON.stringify({
           status: configStatus,
           contentType: configContentType,
-          body: configBody
+          body: configBody,
+          telegramEnabled: configTelegramEnabled,
+          telegramToken: configTelegramToken,
+          telegramChatId: configTelegramChatId,
+          discordEnabled: configDiscordEnabled,
+          discordWebhook: configDiscordWebhook
         })
       });
 
@@ -2242,6 +2262,91 @@ export default function DashboardPage({ params }) {
                   onChange={(e) => setConfigBody(e.target.value)}
                   className={styles.textareaField}
                 />
+              </div>
+            </div>
+
+            {/* Real-time Notifications Section */}
+            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '10px' }}>
+              <h4 style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <Radio size={16} style={{ color: '#00e676' }} className="animate-pulse" />
+                Real-Time Out-of-Band Alerts
+              </h4>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+                {/* Telegram Alert Block */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.15)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input 
+                      type="checkbox" 
+                      id="telegram_enabled"
+                      checked={configTelegramEnabled} 
+                      onChange={(e) => setConfigTelegramEnabled(e.target.checked)}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#00e676' }}
+                    />
+                    <label htmlFor="telegram_enabled" style={{ fontSize: '0.8rem', fontWeight: '800', color: '#00e676', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      ✈️ Telegram Alerts
+                    </label>
+                  </div>
+                  
+                  {configTelegramEnabled && (
+                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                      <div className={styles.configField}>
+                        <label className={styles.fieldLabel} style={{ fontSize: '0.62rem' }}>Bot Token</label>
+                        <input 
+                          type="password"
+                          placeholder="123456789:ABCdef..."
+                          value={configTelegramToken}
+                          onChange={(e) => setConfigTelegramToken(e.target.value)}
+                          className={styles.inputField}
+                          style={{ fontSize: '0.75rem', padding: '8px 10px' }}
+                        />
+                      </div>
+                      <div className={styles.configField}>
+                        <label className={styles.fieldLabel} style={{ fontSize: '0.62rem' }}>Chat ID</label>
+                        <input 
+                          type="text"
+                          placeholder="-100123456789"
+                          value={configTelegramChatId}
+                          onChange={(e) => setConfigTelegramChatId(e.target.value)}
+                          className={styles.inputField}
+                          style={{ fontSize: '0.75rem', padding: '8px 10px' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Discord Alert Block */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.15)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input 
+                      type="checkbox" 
+                      id="discord_enabled"
+                      checked={configDiscordEnabled} 
+                      onChange={(e) => setConfigDiscordEnabled(e.target.checked)}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#7c4dff' }}
+                    />
+                    <label htmlFor="discord_enabled" style={{ fontSize: '0.8rem', fontWeight: '800', color: '#7c4dff', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      👾 Discord Alerts
+                    </label>
+                  </div>
+
+                  {configDiscordEnabled && (
+                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                      <div className={styles.configField}>
+                        <label className={styles.fieldLabel} style={{ fontSize: '0.62rem' }}>Webhook URL</label>
+                        <input 
+                          type="password"
+                          placeholder="https://discord.com/api/webhooks/..."
+                          value={configDiscordWebhook}
+                          onChange={(e) => setConfigDiscordWebhook(e.target.value)}
+                          className={styles.inputField}
+                          style={{ fontSize: '0.75rem', padding: '8px 10px' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
