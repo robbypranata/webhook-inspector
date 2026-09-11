@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Kestrel Ghost Webhook Listener - Pro Bug Hunting Toolkit",
-  description: "Stealth Out-of-Band (OOB) & SSRF callback listener bespoke built for kestrel_ghost.",
+  title: "Webhook Inspector - Real-Time HTTP & Webhook Debugger",
+  description: "Capture, inspect, and analyze incoming HTTP requests, webhooks, and security callbacks in real-time.",
 };
 
 export default function RootLayout({ children }) {

@@ -21,7 +21,7 @@ async function sendNotification(config, title, fields) {
   if (!config) return;
   
   // Format dynamic markdown for Telegram
-  let telegramMessage = `🛰 *[kestrel_ghost]* 🛰\n🔥 *${title}* 🔥\n\n`;
+  let telegramMessage = `*[Webhook Inspector]*\n*${title}*\n\n`;
   for (const [key, val] of Object.entries(fields)) {
     telegramMessage += `• *${key}*: \`${String(val).replace(/[_*`\[\]]/g, '\\$&')}\`\n`;
   }
@@ -48,8 +48,8 @@ async function sendNotification(config, title, fields) {
   if (config.discordEnabled && config.discordWebhook) {
     try {
       const embeds = [{
-        title: `🛰 kestrel_ghost: ${title}`,
-        color: 0x00e676, // green neon
+        title: `Webhook Inspector: ${title}`,
+        color: 0x3b82f6,
         fields: Object.entries(fields).map(([key, val]) => ({
           name: key,
           value: String(val).substring(0, 1023) || 'None',

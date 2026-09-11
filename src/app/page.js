@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Webhook, ArrowRight, Zap, RefreshCw, ShieldAlert, History, Trash2, Globe, Code, Terminal } from 'lucide-react';
+import { ArrowRight, RefreshCw, Plus, History, Trash2, Globe, Sliders, ShieldCheck, Terminal } from 'lucide-react';
 import styles from '@/styles/landing.module.css';
 
 export default function Home() {
@@ -33,7 +33,7 @@ export default function Home() {
       uuid = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     }
     
-    saveToHistory(uuid, 'Stealth OOB Ingestion');
+    saveToHistory(uuid, 'Auto-generated Endpoint');
     router.push(`/dashboard/${uuid}`);
   };
 
@@ -48,7 +48,7 @@ export default function Home() {
       .toLowerCase()
       .replace(/[^a-z0-9-_]/g, '-');
 
-    saveToHistory(cleanedId, 'Custom OOB Endpoint');
+    saveToHistory(cleanedId, 'Custom Endpoint');
     router.push(`/dashboard/${cleanedId}`);
   };
 
@@ -84,92 +84,66 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.glowOrb1}></div>
-      <div className={styles.glowOrb2}></div>
-
       <div className={styles.content}>
-        {/* Stealth Badge */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }} className="animate-fade-in">
-          <span 
-            className="badge badge-info" 
-            style={{ 
-              background: 'rgba(0, 230, 118, 0.15)', 
-              color: '#00e676', 
-              borderColor: '#00e676',
-              padding: '6px 14px',
-              fontSize: '0.75rem',
-              letterSpacing: '1px',
-              fontWeight: '750',
-              textTransform: 'uppercase',
-              boxShadow: '0 0 10px rgba(0, 230, 118, 0.2)'
-            }}
-          >
-            🛰️ Stealth Bug Bounty Toolkit • code name: kestrel_ghost
-          </span>
-        </div>
-
+        {/* Header */}
         <header className={styles.header}>
-          <div className={styles.logoWrapper}>
-            <Terminal size={18} className={styles.logoIcon} style={{ color: '#00e676' }} />
-            <span className={styles.logoText} style={{ letterSpacing: '0.5px' }}>Kestrel Ghost Webhook Listener</span>
+          <div className={styles.tagPill}>
+            <Terminal size={13} />
+            <span>Developer HTTP Inspector</span>
           </div>
+
           <h1 className={styles.title}>
-            Out-of-Band (OOB) Ingestor <br />
-            <span className={styles.titleHighlight} style={{ backgroundImage: 'linear-gradient(45deg, #00e676, #00b0ff)' }}>Private. Stealth. Fast.</span>
+            Webhook Inspector
           </h1>
-          <p className={styles.subtitle} style={{ fontFamily: 'var(--font-geist-mono), monospace', letterSpacing: '1.5px', color: '#00e676', fontSize: '0.85rem', textShadow: '0 0 8px rgba(0, 230, 118, 0.4)', marginTop: '16px' }}>
-            "TURN COFFEE AND SMOKE INTO CODE"
+
+          <p className={styles.subtitle}>
+            Capture, inspect, and analyze incoming HTTP requests and webhook callbacks in real time with zero setup.
           </p>
         </header>
 
-        <main className={`${styles.card} glass-panel animate-fade-in`}>
+        {/* Action Card */}
+        <main className={`${styles.card} animate-fade-in`}>
           <div className={styles.actionSection}>
             <button 
               onClick={handleGenerateRandom} 
               disabled={isLoading}
-              className="btn-primary" 
-              style={{ 
-                width: '100%', 
-                justifyContent: 'center', 
-                padding: '14px',
-                background: 'linear-gradient(135deg, #00e676, #00b0ff)'
-              }}
+              className={`btn-primary ${styles.generateBtn}`}
             >
               {isLoading ? (
                 <>
-                  <RefreshCw size={18} className="animate-spin" />
-                  Generating New Endpoint...
+                  <RefreshCw size={16} className="animate-spin" />
+                  <span>Creating Endpoint...</span>
                 </>
               ) : (
                 <>
-                  <Zap size={18} fill="currentColor" />
-                  Generate Random OOB Endpoint
+                  <Plus size={16} />
+                  <span>Create New Endpoint</span>
                 </>
               )}
             </button>
           </div>
 
-          <div className={styles.divider}>or specify a custom path identifier</div>
+          <div className={styles.divider}>or use a custom path</div>
 
           <div className={styles.actionSection}>
             <form onSubmit={handleCreateCustom} className={styles.inputGroup}>
               <div className={styles.inputPrefix}>/api/r/</div>
               <input 
                 type="text" 
-                placeholder="custom-endpoint-identifier"
+                placeholder="custom-endpoint-name"
                 value={customId}
                 onChange={(e) => setCustomId(e.target.value)}
                 disabled={isLoading}
                 maxLength={40}
-                className={`input-field ${styles.inputWithPrefix}`} 
+                className={styles.inputWithPrefix} 
               />
               <button 
                 type="submit" 
                 disabled={isLoading || !customId.trim()}
-                className="btn-secondary"
-                style={{ padding: '12px 18px', borderColor: '#00e676', color: '#00e676' }}
+                className={styles.submitBtn}
+                title="Open custom endpoint"
               >
-                <ArrowRight size={18} />
+                <ArrowRight size={16} />
               </button>
             </form>
           </div>
@@ -178,8 +152,8 @@ export default function Home() {
           {history.length > 0 && (
             <div className={styles.historySection}>
               <h3 className={styles.historyTitle}>
-                <History size={15} />
-                Active Local Endpoints
+                <History size={13} />
+                Recent Endpoints
               </h3>
               <div className={styles.historyList}>
                 {history.map((item) => (
@@ -200,15 +174,15 @@ export default function Home() {
                         })}
                       </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className={styles.historyActions}>
                       <button 
                         onClick={(e) => handleDeleteHistoryItem(e, item.id)}
-                        className={styles.copyBtn}
+                        className={styles.deleteBtn}
                         title="Delete from history"
                       >
-                        <Trash2 size={14} style={{ color: 'var(--color-error)' }} />
+                        <Trash2 size={13} />
                       </button>
-                      <ArrowRight size={16} className={styles.historyLink} />
+                      <ArrowRight size={14} className={styles.historyLink} />
                     </div>
                   </div>
                 ))}
@@ -217,32 +191,35 @@ export default function Home() {
           )}
         </main>
 
+        {/* Feature Highlights */}
         <footer className={styles.featuresGrid}>
           <div className={styles.featureCard}>
-            <div className={styles.featureIcon} style={{ background: 'rgba(0, 230, 118, 0.1)', color: '#00e676' }}>
-              <Globe size={18} />
+            <div className={styles.featureIcon}>
+              <Globe size={16} />
             </div>
-            <h4 className={styles.featureTitle}>SSRF & OOB Ingestion</h4>
+            <h4 className={styles.featureTitle}>Request Inspection</h4>
             <p className={styles.featureDesc}>
-              Perfectly capture out-of-band network pingbacks from Blind XXE, SSRF, or Remote Code Execution attempts.
+              Inspect complete HTTP headers, query parameters, client IP, and raw request bodies with instant live updates.
             </p>
           </div>
+
           <div className={styles.featureCard}>
-            <div className={styles.featureIcon} style={{ background: 'rgba(0, 176, 255, 0.1)', color: '#00b0ff' }}>
-              <Code size={18} />
+            <div className={styles.featureIcon}>
+              <Sliders size={16} />
             </div>
-            <h4 className={styles.featureTitle}>Exploit Response Maker</h4>
+            <h4 className={styles.featureTitle}>Mock Responses</h4>
             <p className={styles.featureDesc}>
-              Customize HTTP status codes, configure XML/JSON MIME types, and serve specific files for local disclosures.
+              Customize HTTP status codes, headers, and mock JSON/XML response payloads returned to callers.
             </p>
           </div>
+
           <div className={styles.featureCard}>
-            <div className={styles.featureIcon} style={{ background: 'rgba(124, 77, 255, 0.1)', color: '#7c4dff' }}>
-              <ShieldAlert size={18} />
+            <div className={styles.featureIcon}>
+              <ShieldCheck size={16} />
             </div>
-            <h4 className={styles.featureTitle}>Confidential & Private</h4>
+            <h4 className={styles.featureTitle}>Security Diagnostics</h4>
             <p className={styles.featureDesc}>
-              Ingested payloads are stored inside your secure Vercel KV instance, totally isolated from external eyes.
+              Built-in blind callback listeners, SSRF encoding helpers, vulnerability payloads, and Nuclei integrations.
             </p>
           </div>
         </footer>
@@ -250,3 +227,4 @@ export default function Home() {
     </div>
   );
 }
+

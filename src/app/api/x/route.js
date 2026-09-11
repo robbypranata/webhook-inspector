@@ -7,7 +7,7 @@ export async function GET(request) {
   const id = searchParams.get('id');
 
   if (!id) {
-    return new NextResponse('console.error("Kestrel Ghost: Missing target ID parameter.");', {
+    return new NextResponse('console.error("Webhook Inspector: Missing target ID parameter.");', {
       headers: {
         'Content-Type': 'application/javascript',
         'Access-Control-Allow-Origin': '*',
@@ -56,7 +56,7 @@ export async function GET(request) {
     try {
       var rawDom = document.documentElement.outerHTML || "";
       if (rawDom.length > 80000) {
-        data.dom = rawDom.substring(0, 80000) + "\\n\\n[--- TRUNCATED BY KESTREL GHOST RECEIVER TO 80KB ---]";
+        data.dom = rawDom.substring(0, 80000) + "\\n\\n[--- TRUNCATED TO 80KB ---]";
       } else {
         data.dom = rawDom;
       }

