@@ -226,6 +226,9 @@ export default function DashboardPage({ params }) {
     }
   }, []);
 
+  const webhookHost = origin 
+    ? origin.replace(/^https?:\/\//i, '').split(':')[0] 
+    : 'domain.com';
   const webhookUrl = `${origin || 'https://domain.com'}/api/r/${id}`;
   const xssPayloadUrl = `${origin || 'https://domain.com'}/api/x?id=${id}`;
 

@@ -5,7 +5,7 @@
  * 
  * Pre-configured dynamically with active webhook endpoint and Blind XSS URLs.
  */
-export function getPayloadsData({ webhookUrl, xssPayloadUrl, webhookHost, id }) {
+export function getPayloadsData({ webhookUrl = '', xssPayloadUrl = '', webhookHost = 'domain.com', id = '' } = {}) {
   return [
     {
       category: 'XSS',
