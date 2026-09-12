@@ -132,10 +132,14 @@ async function handle(req, { params }) {
     }
 
     // 5. Construct Request Log Object
+    const tag = urlObj.searchParams.get('tag') || 
+                (resolvedParams.slug && Array.isArray(resolvedParams.slug) ? resolvedParams.slug.join('/') : null);
+
     const webhookRequest = {
       requestId: generateRequestId(),
       method: req.method,
       path: urlObj.pathname,
+      tag: tag || null,
       timestamp: new Date().toISOString(),
       ip,
       headers,
@@ -199,6 +203,7 @@ async function handle(req, { params }) {
       const notificationFields = {
         'Method': webhookRequest.method,
         'Path': webhookRequest.path,
+        ...(webhookRequest.tag ? { 'Interaction Tag': webhookRequest.tag } : {}),
         'IP Address': webhookRequest.ip,
         'Query Parameters': JSON.stringify(webhookRequest.query),
         'Payload Snippet': webhookRequest.body ? webhookRequest.body.substring(0, 400) : '[No Body]'

