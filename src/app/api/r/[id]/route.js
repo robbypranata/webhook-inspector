@@ -211,6 +211,19 @@ async function handle(req, { params }) {
       sendNotification(configObj, 'New OOB Webhook Callback Received!', notificationFields).catch(console.error);
     }
 
+    // Dynamic query-based HTTP redirect (extremely useful for SSRF redirects)
+    const redirectUrl = urlObj.searchParams.get('redirect') || urlObj.searchParams.get('redirect_to');
+    if (redirectUrl) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': redirectUrl,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
     if (req.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,

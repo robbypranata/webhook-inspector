@@ -28,7 +28,11 @@ export async function GET(req, { params }) {
     const defaultConfig = {
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ success: true, message: 'Webhook received successfully' })
+      body: JSON.stringify({ success: true, message: 'Webhook received successfully' }),
+      xssDomEnabled: true,
+      xssCookiesEnabled: true,
+      xssStorageEnabled: true,
+      xssCustomCode: ''
     };
 
     if (!savedConfig) {
@@ -36,7 +40,10 @@ export async function GET(req, { params }) {
     }
 
     const config = typeof savedConfig === 'string' ? JSON.parse(savedConfig) : savedConfig;
-    return NextResponse.json(config);
+    return NextResponse.json({
+      ...defaultConfig,
+      ...config
+    });
 
   } catch (error) {
     return NextResponse.json(
@@ -60,7 +67,11 @@ export async function POST(req, { params }) {
       telegramToken,
       telegramChatId,
       discordEnabled,
-      discordWebhook
+      discordWebhook,
+      xssDomEnabled,
+      xssCookiesEnabled,
+      xssStorageEnabled,
+      xssCustomCode
     } = await req.json();
 
     const parsedStatus = parseInt(status, 10);
@@ -76,7 +87,11 @@ export async function POST(req, { params }) {
       telegramToken: telegramToken || '',
       telegramChatId: telegramChatId || '',
       discordEnabled: !!discordEnabled,
-      discordWebhook: discordWebhook || ''
+      discordWebhook: discordWebhook || '',
+      xssDomEnabled: xssDomEnabled !== undefined ? !!xssDomEnabled : true,
+      xssCookiesEnabled: xssCookiesEnabled !== undefined ? !!xssCookiesEnabled : true,
+      xssStorageEnabled: xssStorageEnabled !== undefined ? !!xssStorageEnabled : true,
+      xssCustomCode: xssCustomCode || ''
     };
 
     const isKvConnected = !!process.env.KV_URL;

